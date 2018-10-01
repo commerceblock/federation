@@ -8,9 +8,12 @@ import json
 import time
 from decimal import *
 from pdb import set_trace
+from federation.test_framework.authproxy import AuthServiceProxy, JSONRPCException
+from federation.blocksigning import BlockSigning
 
 NUM_OF_NODES = 5
 TIME_TO_SLEEP = 1
+BLOCK_TIME = 60
 
 time.sleep(TIME_TO_SLEEP)
 
@@ -40,7 +43,7 @@ def main():
             level=logging.INFO
             )
 
-    signing_node = BlockSigning(int(sys.argv[1]), e, NUM_OF_NODES)
+    signing_node = BlockSigning(int(sys.argv[1]), e, NUM_OF_NODES, BLOCK_TIME)
     signing_node.start()
 
     try:

@@ -36,7 +36,7 @@ from threading import RLock
 from threading import Thread
 import logging
 import copy
-from test_framework.siphash import siphash256
+from federation.test_framework.siphash import siphash256
 
 BIP0031_VERSION = 60000
 MY_VERSION = 70014  # past bip-31 for ping/pong
@@ -608,7 +608,7 @@ class CTransaction(object):
             self.wit.deserialize(f)
         if flags > 1:
             raise TypeError('Extra witness flags:' + str(flags))
-        
+
         self.sha256 = None
         self.hash = None
 

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import json
+from time import sleep, time
 from kafka import KafkaConsumer, KafkaProducer
 from .daemon import DaemonThread, DaemonProcess
+from .test_framework.authproxy import JSONRPCException
 
 KAFKA_SERVER = 'localhost:9092'
 TOPIC_NEW_BLOCK = 'new-block'

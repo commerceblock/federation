@@ -1,3 +1,3 @@
 #!/usr/bin/env python3
-import federation
+from federation import federation
 federation.main()
