@@ -106,9 +106,10 @@ def main():
     ee = util.startelementsd(ELEMENTS_PATH, explorer_datadir, explconf, extra_args)
     time.sleep(5)
 
+    node_ids = range(num_of_nodes)
     node_signers = []
-    for i in range(num_of_nodes):
-        node = BlockSigning(i, elements_nodes[i], num_of_nodes, block_time)
+    for i in node_ids:
+        node = BlockSigning(elements_nodes[i], 'kafka', node_ids, i, block_time)
         node_signers.append(node)
         node.start()
 
