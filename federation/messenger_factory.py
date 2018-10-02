@@ -20,4 +20,3 @@ class MessengerFactory(ABC):
                 raise ImportError("currently don't have {}.".format(animal_class))
 
         return instance
-

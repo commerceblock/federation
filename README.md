@@ -4,5 +4,5 @@ The client used by the federation nodes of the Ocean network performing block ge
 
 ## Instructions
 1. `python3 setup.py build && python3 setup.py install`
-2. For the federation run `python3 federation`
-3. For the demo run `python3 demo`
+2. For the federation run `./run_federation` or `python3 -m federation`
+3. For the demo run `./run_demo` or `python3 -m demo`

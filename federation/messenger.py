@@ -4,8 +4,7 @@ import multiprocessing
 from abc import ABC, abstractmethod
 
 class Messenger(ABC):
-    def __init__(self, ocean, nodes, my_id):
-        self.ocean = ocean
+    def __init__(self, nodes, my_id):
         self.nodes = nodes
         self.my_id = my_id
         pass

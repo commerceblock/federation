@@ -8,8 +8,8 @@ TOPIC_NEW_BLOCK = 'new-block'
 TOPIC_NEW_SIG   = 'new-sig'
 
 class KafkaMessenger(Messenger):
-    def __init__(self, ocean, nodes, my_id):
-        Messenger.__init__(self, ocean, nodes, my_id)
+    def __init__(self, nodes, my_id):
+        Messenger.__init__(self, nodes, my_id)
         self.my_sig_topic = TOPIC_NEW_SIG + "{}".format(my_id)
         self.all_sig_topics = [TOPIC_NEW_SIG + "{}".format(i) for i in range(0, len(self.nodes))]
 
@@ -31,13 +31,9 @@ class KafkaMessenger(Messenger):
         message = {'height': height, 'block': block}
         self.produce(TOPIC_NEW_BLOCK, message)
 
-    def produce_sig(self, block, height):
-        try:
-            sig = self.ocean.signblock(block)
-            message = {'height': height, 'sig': sig}
-            self.produce(self.my_sig_topic, message)
-        except JSONRPCException as error:
-            print(error)
+    def produce_sig(self, sig, height):
+        message = {'height': height, 'sig': sig}
+        self.produce(self.my_sig_topic, message)
 
     def consume_block(self, height):
         consumer = self.consume([TOPIC_NEW_BLOCK])
@@ -46,7 +42,7 @@ class KafkaMessenger(Messenger):
             if message_height > height: # just in case to avoid old messages
                 new_block = message.value.get("block", "")
                 return new_block
-        return ""
+        return None
 
     def consume_sigs(self, height):
         consumer = self.consume(self.all_sig_topics)
