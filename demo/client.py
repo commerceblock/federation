@@ -2,8 +2,8 @@
 import time
 import multiprocessing
 import random
-from demo.util import *
-from demo.assetissuance import AssetIssuance
+from federation.connectivity import *
+from .assetissuance import AssetIssuance
 
 WAIT_TIME = 60
 ISSUANCE_AMOUNT = 100000

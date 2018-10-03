@@ -3,39 +3,17 @@ from time import sleep, time
 from .daemon import DaemonProcess
 from .test_framework.authproxy import JSONRPCException
 from .messenger_factory import MessengerFactory
+from .connectivity import getelementsd
 
 class BlockSigning(DaemonProcess):
-    def __init__(self, ocean, messenger_type, nodes, my_id, block_time):
+    def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time):
         super().__init__()
-        self.ocean = ocean
+        self.ocean_conf = ocean_conf
+        self.ocean = getelementsd(self.ocean_conf)
         self.interval = block_time
         self.total = len(nodes)
         self.my_id = my_id
         self.messenger = MessengerFactory.get_messenger(messenger_type, nodes, my_id)
-
-    def get_newblockhex(self):
-        try:
-            return self.ocean.getnewblockhex()
-        except Exception as e:
-            print(e)
-            return None
-
-    def get_blocksig(self, block):
-        try:
-            return self.ocean.signblock(block)
-        except Exception as e:
-            print(e)
-            return None
-
-    def generate_signed_block(self, block, sigs):
-        try:
-            sigs.append(self.get_blocksig(block))
-            blockresult = self.ocean.combineblocksigs(block, sigs)
-            signedblock = blockresult["hex"]
-            self.ocean.submitblock(signedblock)
-            print("node {} - submitted block {}".format(self.my_id, signedblock))
-        except Exception as e:
-            print("failed signing: {}".format(e))
 
     def run(self):
         while not self.stop_event.is_set():
@@ -43,7 +21,10 @@ class BlockSigning(DaemonProcess):
             start_time = int(time())
             step = int(time()) % (self.interval * self.total) / self.interval
 
-            height = self.ocean.getblockcount()
+            height = self.get_blockcount()
+            if height == None:
+                print("could not connect to ocean client")
+                continue
 
             if self.my_id != int(step):
                 # NOT OUR TURN - GET BLOCK AND SEND SIGNATURE ONLY
@@ -80,3 +61,37 @@ class BlockSigning(DaemonProcess):
                     print("could not get new block sigs")
                     continue
                 self.generate_signed_block(block, sigs)
+
+    def get_blockcount(self):
+        try:
+            return self.ocean.getblockcount()
+        except Exception as e:
+            print("{}\nReconnecting to client...".format(e))
+            self.ocean = getelementsd(self.ocean_conf)
+            return None
+
+    def get_newblockhex(self):
+        try:
+            return self.ocean.getnewblockhex()
+        except Exception as e:
+            print("{}\nReconnecting to client...".format(e))
+            self.ocean = getelementsd(self.ocean_conf)
+            return None
+
+    def get_blocksig(self, block):
+        try:
+            return self.ocean.signblock(block)
+        except Exception as e:
+            print("{}\nReconnecting to client...".format(e))
+            self.ocean = getelementsd(self.ocean_conf)
+            return None
+
+    def generate_signed_block(self, block, sigs):
+        try:
+            sigs.append(self.get_blocksig(block))
+            blockresult = self.ocean.combineblocksigs(block, sigs)
+            signedblock = blockresult["hex"]
+            self.ocean.submitblock(signedblock)
+            print("node {} - submitted block {}".format(self.my_id, signedblock))
+        except Exception as e:
+            print("failed signing: {}".format(e))

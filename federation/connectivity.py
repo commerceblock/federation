@@ -5,10 +5,13 @@ import sys
 import time
 import subprocess
 import shutil
-from federation.test_framework.authproxy import AuthServiceProxy, JSONRPCException
+from .test_framework.authproxy import AuthServiceProxy, JSONRPCException
 
 def startelementsd(elementspath, datadir, conf, args=""):
     subprocess.Popen((elementspath+"  -datadir="+datadir+" "+args).split(), stdout=subprocess.PIPE)
+    return getelementsd(conf)
+
+def getelementsd(conf):
     return AuthServiceProxy("http://"+conf["rpcuser"]+":"+conf["rpcpassword"]+"@127.0.0.1:"+conf["rpcport"])
 
 def loadConfig(filename):

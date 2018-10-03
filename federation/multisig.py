@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import codecs
 import hashlib
-from federation.test_framework import (
+from .test_framework import (
     address,
     key,
     util,
 )
-from demo.util import *
+from .connectivity import *
 
 class MultiSig():
     def __init__(self, nodes, sigs, compressed=True):

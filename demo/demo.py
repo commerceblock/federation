@@ -6,13 +6,13 @@ import time
 import shutil
 import logging
 import json
-import demo.util as util
+import federation.connectivity as connectivity
 import argparse
 from decimal import *
 from pdb import set_trace
 from federation.blocksigning import BlockSigning
-from demo.multisig import MultiSig
-from demo.client import Client
+from federation.multisig import MultiSig
+from .client import Client
 
 ELEMENTS_PATH = "elementsd"
 DEFAULT_ENABLE_LOGGING = False
@@ -71,7 +71,7 @@ def main():
     extra_args =  "{} {} {} {}".format(signblockarg, coinbasearg, issuecontrolarg, coindestarg)
 
     # INIT THE OCEAN MAIN NODES
-    elements_nodes = []
+    ocean_conf = []
     tmpdir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
     for i in range(0, num_of_nodes):
         datadir = tmpdir + "/main" + str(i)
@@ -81,12 +81,12 @@ def main():
         confdir=os.path.join(os.path.dirname(__file__), "main"+str(i)+"/elements.conf")
         shutil.copyfile(confdir, datadir+"/elements.conf")
         shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), datadir + "/terms-and-conditions/latest.txt")
-        mainconf = util.loadConfig(confdir)
+        mainconf = connectivity.loadConfig(confdir)
 
         print("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
-        e = util.startelementsd(ELEMENTS_PATH, datadir, mainconf, extra_args)
+        e = connectivity.startelementsd(ELEMENTS_PATH, datadir, mainconf, extra_args)
         time.sleep(5)
-        elements_nodes.append(e)
+        ocean_conf.append((mainconf, e))
         e.importprivkey(keys[i])
         time.sleep(2)
 
@@ -102,14 +102,14 @@ def main():
     os.makedirs(explorer_datadir + "/terms-and-conditions")
     shutil.copyfile(os.path.join(os.path.dirname(__file__), 'explorer/elements.conf'), explorer_datadir+"/elements.conf")
     shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), explorer_datadir + "/terms-and-conditions/latest.txt")
-    explconf = util.loadConfig(os.path.join(os.path.dirname(__file__), 'explorer/elements.conf'))
-    ee = util.startelementsd(ELEMENTS_PATH, explorer_datadir, explconf, extra_args)
+    explconf = connectivity.loadConfig(os.path.join(os.path.dirname(__file__), 'explorer/elements.conf'))
+    ee = connectivity.startelementsd(ELEMENTS_PATH, explorer_datadir, explconf, extra_args)
     time.sleep(5)
 
     node_ids = range(num_of_nodes)
     node_signers = []
     for i in node_ids:
-        node = BlockSigning(elements_nodes[i], 'kafka', node_ids, i, block_time)
+        node = BlockSigning(ocean_conf[i][0], 'kafka', node_ids, i, block_time)
         node_signers.append(node)
         node.start()
 
@@ -125,8 +125,8 @@ def main():
             for node in node_signers:
                 node.stop()
 
-            for elements in elements_nodes:
-                elements.stop()
+            for ocean in ocean_conf:
+                ocean[1].stop()
 
             ee.stop()
             client.stop()

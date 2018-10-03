@@ -4,7 +4,8 @@ A demonstration of protocols used by the Ocean network, including federated sign
 
 ## Instructions
 
-`python3 demo`
+`./scripts/restart_kafka.sh`
+`python3 -m demo`
 
 ## Running Kafka
 - Install kafka
