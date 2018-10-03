@@ -11,7 +11,7 @@ class KafkaMessenger(Messenger):
     def __init__(self, nodes, my_id):
         Messenger.__init__(self, nodes, my_id)
         self.my_sig_topic = TOPIC_NEW_SIG + "{}".format(my_id)
-        self.all_sig_topics = [TOPIC_NEW_SIG + "{}".format(i) for i in range(0, len(self.nodes))]
+        self.all_sig_topics = [TOPIC_NEW_SIG + "{}".format(i) for i in range(len(nodes))]
 
     def produce(self, topic, message):
         producer = KafkaProducer(bootstrap_servers=KAFKA_SERVER,

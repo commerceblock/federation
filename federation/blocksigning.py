@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 from time import sleep, time
-from .daemon import DaemonProcess
+from .daemon import DaemonThread
 from .test_framework.authproxy import JSONRPCException
 from .messenger_factory import MessengerFactory
 from .connectivity import getelementsd
 
-class BlockSigning(DaemonProcess):
+class BlockSigning(DaemonThread):
     def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time):
         super().__init__()
         self.ocean_conf = ocean_conf

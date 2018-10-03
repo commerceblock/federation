@@ -18,6 +18,7 @@ ELEMENTS_PATH = "elementsd"
 DEFAULT_ENABLE_LOGGING = False
 DEFAULT_GENERATE_KEYS = False
 DEFAULT_RETAIN_DAEMONS = False
+MESSENGER_TYPE = 'zmq'
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -106,10 +107,17 @@ def main():
     ee = connectivity.startelementsd(ELEMENTS_PATH, explorer_datadir, explconf, extra_args)
     time.sleep(5)
 
-    node_ids = range(num_of_nodes)
+    # For ZMQ testing host of nodes is required to setup the sockets
+    # Sockets are not thread safe though so only 2 nodes will be used,
+    # since if there were more multiple nodes will be reading the socket
+    # For the demo to work it should not require more than two signatures
+    node_ids = ['localhost:%s' % (1500 + i) for i in range(num_of_nodes) ]
+    if MESSENGER_TYPE == 'zmq':
+        node_ids = node_ids[0:2]
+
     node_signers = []
-    for i in node_ids:
-        node = BlockSigning(ocean_conf[i][0], 'kafka', node_ids, i, block_time)
+    for i in range(len(node_ids)):
+        node = BlockSigning(ocean_conf[i][0], MESSENGER_TYPE, node_ids, i, block_time)
         node_signers.append(node)
         node.start()
 
