@@ -21,7 +21,7 @@ def demogrify(topicmsg):
 class ZmqProducer:
     def __init__(self, port):
         self.socket = zmq_context.socket(zmq.PUB)
-        self.socket.bind("tcp://127.0.0.1:%d" % port)
+        self.socket.bind("tcp://*:%d" % port)
         zmq_poller.register(self.socket, zmq.POLLOUT)
 
     def send_message(self, msg, topic):
@@ -34,7 +34,7 @@ class ZmqConsumer:
             self.socket.setsockopt(zmq.SOCKS_PROXY, proxy)
         self.socket.setsockopt(zmq.RECONNECT_IVL, 500)
         self.socket.setsockopt(zmq.RECONNECT_IVL_MAX, 10000)
-        self.socket.connect("tcp://127.0.0.1:%d" % (port))
+        self.socket.connect("tcp://%s:%d" % (host, port))
         self.socket.setsockopt(zmq.SUBSCRIBE, "{}".format(TOPIC_NEW_BLOCK).encode("ascii", "strict"))
         self.socket.setsockopt(zmq.SUBSCRIBE, "{}".format(TOPIC_NEW_SIG).encode("ascii", "strict"))
         zmq_poller.register(self.socket, zmq.POLLIN)

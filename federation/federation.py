@@ -12,8 +12,8 @@ from .test_framework.authproxy import AuthServiceProxy, JSONRPCException
 from .blocksigning import BlockSigning
 from .connectivity import getelementsd, loadConfig
 
-NODES = [0,1,2]
-TIME_TO_SLEEP = 60
+NODES = ['node0:1500', 'node1:1501']
+TIME_TO_SLEEP = 10
 BLOCK_TIME = 60
 
 time.sleep(TIME_TO_SLEEP)
@@ -30,7 +30,7 @@ def main():
             level=logging.INFO
             )
 
-    signing_node = BlockSigning(conf, 'kafka', NODES, int(sys.argv[1]), BLOCK_TIME)
+    signing_node = BlockSigning(conf, 'zmq', NODES, int(sys.argv[1]), BLOCK_TIME)
     signing_node.start()
 
     try:

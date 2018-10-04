@@ -115,7 +115,7 @@ def main():
     # Sockets are not thread safe though so only 2 nodes will be used,
     # since if there were more multiple nodes will be reading the socket
     # For the demo to work it should not require more than two signatures
-    node_ids = ['localhost:%s' % (1500 + i) for i in range(num_of_nodes) ]
+    node_ids = ['127.0.0.1:%s' % (1500 + i) for i in range(num_of_nodes) ]
     if MESSENGER_TYPE == 'zmq':
         node_ids = node_ids[0:2]
 
