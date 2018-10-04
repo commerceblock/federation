@@ -10,11 +10,9 @@ zmq_context = zmq.Context()
 zmq_poller = zmq.Poller()
 
 def mogrify(topic, msg):
-    """ json encode the message and prepend the topic """
     return topic + ' ' + json.dumps(msg)
 
 def demogrify(topicmsg):
-    """ Inverse of mogrify() """
     json0 = topicmsg.find('{')
     topic = topicmsg[0:json0].strip()
     msg = json.loads(topicmsg[json0:])
@@ -27,8 +25,7 @@ class ZmqProducer:
         zmq_poller.register(self.socket, zmq.POLLOUT)
 
     def send_message(self, msg, topic):
-        #self.socket.send(mogrify(topic, msg).encode("ascii", "strict"))
-        self.socket.send("{} {}".format(topic, msg).encode("ascii", "strict"), zmq.NOBLOCK)
+        self.socket.send(mogrify(topic, msg).encode("ascii", "strict"))
 
 class ZmqConsumer:
     def __init__(self, host, port, proxy=None):
@@ -45,8 +42,7 @@ class ZmqConsumer:
     def read_message(self):
         if self.socket not in dict(zmq_poller.poll()):
             return None, None
-        #return demogrify(self.socket.recv().decode())
-        return self.socket.recv().decode("ascii", "strict").split(" ", 1)
+        return demogrify(self.socket.recv().decode())
 
 class ZmqMessenger(Messenger):
     def __init__(self, nodes, my_id):
@@ -63,12 +59,12 @@ class ZmqMessenger(Messenger):
         self.producer.send_message(message, topic)
 
     def produce_block(self, block, height):
-        #message = {'height': height, 'block': block}
-        self.produce(TOPIC_NEW_BLOCK, block)
+        message = {'height': height, 'block': block}
+        self.produce(TOPIC_NEW_BLOCK, message)
 
     def produce_sig(self, sig, height):
-        #message = {'height': height, 'sig': sig}
-        self.produce(TOPIC_NEW_SIG, sig)
+        message = {'height': height, 'sig': sig}
+        self.produce(TOPIC_NEW_SIG, message)
 
     def consume(self, topics):
         messages = []
@@ -83,13 +79,15 @@ class ZmqMessenger(Messenger):
 
     def consume_block(self, height):
         consumer = self.consume([TOPIC_NEW_BLOCK])
-        if len(consumer) > 0:
-            return consumer[-1]
+        for message in consumer:
+            if message.get('height', 0) == height + 1:
+                return message.get('block', "")
         return None
 
     def consume_sigs(self, height):
         sigs = []
         consumer = self.consume([TOPIC_NEW_SIG])
         for message in consumer:
-            sigs.append(message)
+            if message.get('height', 0) == height + 1:
+                sigs.append(message.get('sig', ""))
         return sigs
