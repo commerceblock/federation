@@ -19,9 +19,9 @@ def demogrify(topicmsg):
     return topic, msg
 
 class ZmqProducer:
-    def __init__(self, port):
+    def __init__(self, host, port):
         self.socket = zmq_context.socket(zmq.PUB)
-        self.socket.bind("tcp://*:%d" % port)
+        self.socket.bind("tcp://%s:%d" % ('*', port))
         zmq_poller.register(self.socket, zmq.POLLOUT)
 
     def send_message(self, msg, topic):
@@ -51,7 +51,7 @@ class ZmqMessenger(Messenger):
         for i, node in enumerate(nodes):
             host, port = node.split(':', 1)
             if i == my_id:
-                self.producer = ZmqProducer(int(port))
+                self.producer = ZmqProducer(host, int(port))
             else:
                 self.consumers.append(ZmqConsumer(host, int(port)))
 

@@ -3,7 +3,7 @@ import json
 from .messenger import Messenger
 from kafka import KafkaConsumer, KafkaProducer
 
-KAFKA_SERVER    = 'localhost:9092'
+KAFKA_SERVER    = 'kafka:9092'
 TOPIC_NEW_BLOCK = 'new-block'
 TOPIC_NEW_SIG   = 'new-sig'
 

@@ -12,8 +12,8 @@ class BlockSigning(DaemonThread):
         self.ocean = getelementsd(self.ocean_conf)
         self.interval = block_time
         self.total = len(nodes)
-        self.my_id = my_id
-        self.messenger = MessengerFactory.get_messenger(messenger_type, nodes, my_id)
+        self.my_id = my_id % self.total
+        self.messenger = MessengerFactory.get_messenger(messenger_type, nodes, self.my_id)
 
     def run(self):
         while not self.stop_event.is_set():
