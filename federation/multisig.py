@@ -8,11 +8,14 @@ from .test_framework import (
 )
 from .connectivity import *
 
+WIF_PREFIX_MAIN = 128
+
 class MultiSig():
-    def __init__(self, nodes, sigs, compressed=True):
+    def __init__(self, nodes, sigs, compressed=True, wif_prefix=WIF_PREFIX_MAIN):
         self.num_of_nodes = nodes
         self.num_of_sigs = sigs
         self.is_compressed = compressed
+        self.wif_prefix = wif_prefix
         self.keys = []
         self.wifs = []
         self.script = ""
@@ -27,7 +30,7 @@ class MultiSig():
             pk_bytes = pk_bytes + b'\x01' if self.is_compressed else pk_bytes
             k.set_secretbytes(pk_bytes)
             self.keys.append(k)
-            self.wifs.append(address.byte_to_base58(pk_bytes, 128))
+            self.wifs.append(address.byte_to_base58(pk_bytes, self.wif_prefix))
 
     def generate(self):
         script = "{}".format(50 + self.num_of_sigs)
@@ -37,5 +40,4 @@ class MultiSig():
             script += codecs.encode(k.get_pubkey(), 'hex_codec').decode("utf-8")
         script += "{}".format(50 + self.num_of_nodes) # num keys
         script += "ae" # OP_CHECKMULTISIG
-        print('signblockscript', script)
         self.script = script
