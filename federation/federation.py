@@ -6,6 +6,7 @@ import shutil
 import logging
 import json
 import time
+import argparse
 from decimal import *
 from pdb import set_trace
 from .test_framework.authproxy import AuthServiceProxy, JSONRPCException
@@ -13,26 +14,37 @@ from .blocksigning import BlockSigning
 from .connectivity import getelementsd, loadConfig
 
 NUM_OF_NODES_DEFAULT = 5
-MESSENGER_TYPE_DEFAULT = 'kafka'
+MESSENGER_TYPE_DEFAULT = "kafka"
 BLOCK_TIME = 60
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--rpconnect', required=True, type=str, help="Client RPC host")
+    parser.add_argument('--rpcport', required=True, type=str, help="Client RPC port")
+    parser.add_argument('--rpcuser', required=True, type=str, help="RPC username for client")
+    parser.add_argument('--rpcpassword', required=True, type=str, help="RPC password for client")
+    parser.add_argument('--id', required=True, type=int, help="Federation node id")
+
+    parser.add_argument('--msgtype', default=MESSENGER_TYPE_DEFAULT, type=str, help="Messenger type protocol used by federation. 'Kafka' and 'zmq' values supported")
+    parser.add_argument('--nodes', default="", type=str, help="Nodes for zmq protocol. Example use 'node0:1503,node1:1502'")
+
+    return parser.parse_args()
+
 def main():
-    if len(sys.argv) < 3:
-        raise ValueError("Incorrect number of arguments - Specify node id and datadir")
+    args = parse_args()
 
-    datadir = str(sys.argv[2])
-    conf = loadConfig(datadir + "/elements.conf")
+    conf = {}
+    conf["rpcuser"] = args.rpcuser
+    conf["rpcpassword"] = args.rpcpassword
+    conf["rpcport"] = args.rpcport
+    conf["rpcconnect"] = args.rpconnect
 
-    node_id = int(sys.argv[1])
+    node_id = args.id
+    msg_type = args.msgtype
 
-    if len(sys.argv) > 3:
-        msg_type = sys.argv[3]
-    else:
-        msg_type = MESSENGER_TYPE_DEFAULT
-
-    if len(sys.argv) > 4:
+    if args.nodes != "":
         # Provide ip:port for zmq protocol
-        nodes = sys.argv[4].split(',')
+        nodes = args.nodes.split(',')
     else:
         # Maintain old behavior for Kafka
         nodes = ['']*NUM_OF_NODES_DEFAULT
