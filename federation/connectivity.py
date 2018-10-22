@@ -13,7 +13,7 @@ def startelementsd(elementspath, datadir, conf, args=""):
 
 def getelementsd(conf):
     if "rpcconnect" in conf:
-        rpconnect = conf["rpcconnect"]
+        rpcconnect = conf["rpcconnect"]
     else:
         rpcconnect = "127.0.0.1"
 
