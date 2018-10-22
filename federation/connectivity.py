@@ -12,7 +12,12 @@ def startelementsd(elementspath, datadir, conf, args=""):
     return getelementsd(conf)
 
 def getelementsd(conf):
-    return AuthServiceProxy("http://"+conf["rpcuser"]+":"+conf["rpcpassword"]+"@127.0.0.1:"+conf["rpcport"])
+    if "rpcconnect" in conf:
+        rpconnect = conf["rpcconnect"]
+    else:
+        rpcconnect = "127.0.0.1"
+
+    return AuthServiceProxy("http://"+conf["rpcuser"]+":"+conf["rpcpassword"]+"@"+rpcconnect+":"+conf["rpcport"])
 
 def loadConfig(filename):
     conf = {}
