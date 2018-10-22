@@ -5,7 +5,8 @@ The client used by the federation nodes of the Ocean network performing block ge
 ## Instructions
 1. `python3 setup.py build && python3 setup.py install`
 2. For the demo run `./run_demo` or `python3 -m demo`
-3. For the federation run `./run_federation` or `python3 -m federation $NODE_ID $DATADIR $MSG_TYPE $NODES`
+3. For the federation run `./run_federation` or `python3 -m federation` and provide the following arguments:
+`--rpcconnect $HOST --rpocport $PORT --rpcuser $USER --rpcpass $PASS --id $NODE_ID --msgtype $MSG_TYPE --nodes $NODES_LIST`
 
 Federation arguments:
 
@@ -16,5 +17,5 @@ Federation arguments:
 
 Example use:
 
-- zmq: `python3 -m federation 1 /tmp/ABCDE/node0 zmq 'node0:1503,node1:1502'`
-- kafka: `python3 -m federation 1 /tmp/ABCDE/node0` (check federation.py - defaults to 5 nodes)
+- zmq: `python3 -m federation --rpconnect 127.0.0.1 --rpcport 18443 --rpcuser user --rpcpass pass --id 1 --msgtype zmq --nodes “node0:1503,node1:1502”`
+- kafka: `python3 -m federation --rpconnect 127.0.0.1 --rpcport 18443 --rpcuser user --rpcpass pass --id 1` (check federation.py - defaults to 5 nodes)
