@@ -29,9 +29,13 @@ class BlockSigning(DaemonThread):
             if self.my_id != int(step):
                 # NOT OUR TURN - GET BLOCK AND SEND SIGNATURE ONLY
                 print("node {} - consumer".format(self.my_id))
-                sleep(self.interval / 4) # wait for new block
 
-                new_block = self.messenger.consume_block(height)
+                new_block = None
+                while new_block == None:
+                    if (time() - start_time) >= (self.interval / 3): # time limit to get block
+                        break
+                    new_block = self.messenger.consume_block(height)
+
                 if new_block == None:
                     print("could not get latest suggested block")
                     continue
