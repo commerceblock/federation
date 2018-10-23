@@ -5,6 +5,7 @@ COPY . /usr/src
 RUN set -x \
     && cd /usr/src \
     && python setup.py build \
-    && python setup.py install
-
+    && python setup.py install \
+    && pip install -r requirements.txt
+    
 CMD ["bash","-c"]
