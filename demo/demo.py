@@ -14,7 +14,7 @@ from federation.blocksigning import BlockSigning
 from federation.multisig import MultiSig
 from .client import Client
 
-ELEMENTS_PATH = "elementsd"
+OCEAN_PATH = "oceand"
 DEFAULT_ENABLE_LOGGING = False
 DEFAULT_GENERATE_KEYS = False
 DEFAULT_RETAIN_DAEMONS = False
@@ -83,13 +83,13 @@ def main():
         os.makedirs(datadir)
         os.makedirs(datadir + "/terms-and-conditions")
 
-        confdir=os.path.join(os.path.dirname(__file__), "main"+str(i)+"/elements.conf")
-        shutil.copyfile(confdir, datadir+"/elements.conf")
+        confdir=os.path.join(os.path.dirname(__file__), "main"+str(i)+"/ocean.conf")
+        shutil.copyfile(confdir, datadir+"/ocean.conf")
         shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), datadir + "/terms-and-conditions/latest.txt")
         mainconf = connectivity.loadConfig(confdir)
 
         print("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
-        e = connectivity.startelementsd(ELEMENTS_PATH, datadir, mainconf, extra_args)
+        e = connectivity.startoceand(OCEAN_PATH, datadir, mainconf, extra_args)
         time.sleep(5)
         ocean_conf.append((mainconf, e))
         e.importprivkey(keys[i])
@@ -105,10 +105,10 @@ def main():
     explorer_datadir=tmpdir+"/explorer"
     os.makedirs(explorer_datadir)
     os.makedirs(explorer_datadir + "/terms-and-conditions")
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), 'explorer/elements.conf'), explorer_datadir+"/elements.conf")
+    shutil.copyfile(os.path.join(os.path.dirname(__file__), 'explorer/ocean.conf'), explorer_datadir+"/ocean.conf")
     shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), explorer_datadir + "/terms-and-conditions/latest.txt")
-    explconf = connectivity.loadConfig(os.path.join(os.path.dirname(__file__), 'explorer/elements.conf'))
-    ee = connectivity.startelementsd(ELEMENTS_PATH, explorer_datadir, explconf, extra_args)
+    explconf = connectivity.loadConfig(os.path.join(os.path.dirname(__file__), 'explorer/ocean.conf'))
+    ee = connectivity.startoceand(OCEAN_PATH, explorer_datadir, explconf, extra_args)
     time.sleep(5)
 
     # For ZMQ testing host of nodes is required to setup the sockets
@@ -125,7 +125,7 @@ def main():
         node_signers.append(node)
         node.start()
 
-    client = Client(ELEMENTS_PATH, num_of_clients, extra_args, myfreecoins, coindestkey)
+    client = Client(OCEAN_PATH, num_of_clients, extra_args, myfreecoins, coindestkey)
     client.start()
 
     try:

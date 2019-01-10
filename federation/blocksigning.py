@@ -3,13 +3,13 @@ from time import sleep, time
 from .daemon import DaemonThread
 from .test_framework.authproxy import JSONRPCException
 from .messenger_factory import MessengerFactory
-from .connectivity import getelementsd
+from .connectivity import getoceand
 
 class BlockSigning(DaemonThread):
     def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time):
         super().__init__()
         self.ocean_conf = ocean_conf
-        self.ocean = getelementsd(self.ocean_conf)
+        self.ocean = getoceand(self.ocean_conf)
         self.interval = block_time
         self.total = len(nodes)
         self.my_id = my_id % self.total
@@ -71,7 +71,7 @@ class BlockSigning(DaemonThread):
             return self.ocean.getblockcount()
         except Exception as e:
             print("{}\nReconnecting to client...".format(e))
-            self.ocean = getelementsd(self.ocean_conf)
+            self.ocean = getoceand(self.ocean_conf)
             return None
 
     def get_newblockhex(self):
@@ -79,7 +79,7 @@ class BlockSigning(DaemonThread):
             return self.ocean.getnewblockhex()
         except Exception as e:
             print("{}\nReconnecting to client...".format(e))
-            self.ocean = getelementsd(self.ocean_conf)
+            self.ocean = getoceand(self.ocean_conf)
             return None
 
     def get_blocksig(self, block):
@@ -87,7 +87,7 @@ class BlockSigning(DaemonThread):
             return self.ocean.signblock(block)
         except Exception as e:
             print("{}\nReconnecting to client...".format(e))
-            self.ocean = getelementsd(self.ocean_conf)
+            self.ocean = getoceand(self.ocean_conf)
             return None
 
     def generate_signed_block(self, block, sigs):

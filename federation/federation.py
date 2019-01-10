@@ -11,7 +11,7 @@ from decimal import *
 from pdb import set_trace
 from .test_framework.authproxy import AuthServiceProxy, JSONRPCException
 from .blocksigning import BlockSigning
-from .connectivity import getelementsd, loadConfig
+from .connectivity import getoceand, loadConfig
 
 NUM_OF_NODES_DEFAULT = 5
 MESSENGER_TYPE_DEFAULT = "kafka"

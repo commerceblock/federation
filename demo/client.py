@@ -11,7 +11,7 @@ REISSUANCE_AMOUNT = 50
 REISSUANCE_TOKEN = 1
 
 class Client(multiprocessing.Process):
-    def __init__(self, elementsdir, numofclients, args, myfreecoins=False, freecoinkey=""):
+    def __init__(self, oceandir, numofclients, args, myfreecoins=False, freecoinkey=""):
         multiprocessing.Process.__init__(self)
         self.daemon = True
         self.stop_event = multiprocessing.Event()
@@ -22,18 +22,18 @@ class Client(multiprocessing.Process):
         self.issuers = []
         self.tmpdir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
 
-        for i in range(0, self.num_of_clients): # spawn elements signing node
+        for i in range(0, self.num_of_clients): # spawn ocean signing node
             datadir = self.tmpdir + "/client" + str(i)
             os.makedirs(datadir)
             os.makedirs(datadir + "/terms-and-conditions")
 
-            confdir = os.path.join(os.path.dirname(__file__), "client"+str(i)+"/elements.conf")
-            shutil.copyfile(confdir, datadir+"/elements.conf")
+            confdir = os.path.join(os.path.dirname(__file__), "client"+str(i)+"/ocean.conf")
+            shutil.copyfile(confdir, datadir+"/ocean.conf")
             shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), datadir + "/terms-and-conditions/latest.txt")
             mainconf = loadConfig(confdir)
 
             print("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
-            e = startelementsd(elementsdir, datadir, mainconf, args)
+            e = startoceand(oceandir, datadir, mainconf, args)
             self.ocean_conf[i] = ((mainconf, e))
             time.sleep(10)
             if not self.my_freecoins:
@@ -59,11 +59,11 @@ class Client(multiprocessing.Process):
         while not self.stop_event.is_set():
             if self.my_freecoins:
                 # get random addr from nodes
-                addr = getelementsd(self.ocean_conf[random.randint(0,self.num_of_clients-1)][0]).getnewaddress()
+                addr = getoceand(self.ocean_conf[random.randint(0,self.num_of_clients-1)][0]).getnewaddress()
                 time.sleep(2)
 
                 # reconnect to avoid any previous failures
-                ocean_client = getelementsd(self.ocean_conf[send_turn][0])
+                ocean_client = getoceand(self.ocean_conf[send_turn][0])
                 ocean_client.sendtoaddress(addr, random.randint(1,10), "", "", False, self.assets[send_turn])
                 time.sleep(2)
                 ocean_client.reissueasset(self.assets[send_turn], REISSUANCE_AMOUNT)
@@ -74,7 +74,7 @@ class Client(multiprocessing.Process):
                 break
 
 if __name__ == "__main__":
-    path = "../../ocean/src/elementsd"
+    path = "../../ocean/src/oceand"
     c = Client(path)
     c.start()
 
