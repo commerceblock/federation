@@ -24,3 +24,7 @@ class Messenger(ABC):
     @abstractmethod
     def consume_sigs(self):
         pass
+
+    @abstractmethod
+    def reconnect(self):
+        pass

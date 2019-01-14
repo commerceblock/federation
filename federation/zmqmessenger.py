@@ -34,6 +34,8 @@ class ZmqConsumer:
             self.socket.setsockopt(zmq.SOCKS_PROXY, proxy)
         self.socket.setsockopt(zmq.RECONNECT_IVL, 500)
         self.socket.setsockopt(zmq.RECONNECT_IVL_MAX, 10000)
+        self.host = host
+        self.port = port
         self.socket.connect("tcp://%s:%d" % (host, port))
         self.socket.setsockopt(zmq.SUBSCRIBE, "{}".format(TOPIC_NEW_BLOCK).encode("ascii", "strict"))
         self.socket.setsockopt(zmq.SUBSCRIBE, "{}".format(TOPIC_NEW_SIG).encode("ascii", "strict"))
@@ -43,6 +45,9 @@ class ZmqConsumer:
         if self.socket not in dict(zmq_poller.poll()):
             return None, None
         return demogrify(self.socket.recv().decode())
+
+    def reconnect(self):
+        self.socket.connect("tcp://%s:%d" % (self.host, self.port))
 
 class ZmqMessenger(Messenger):
     def __init__(self, nodes, my_id):
@@ -91,3 +96,8 @@ class ZmqMessenger(Messenger):
             if message.get('height', 0) == height + 1:
                 sigs.append(message.get('sig', ""))
         return sigs
+
+    def reconnect(self):
+        print("Reconnecting consumers...")
+        for consumer in self.consumers:
+            consumer.reconnect()

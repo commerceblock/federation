@@ -54,3 +54,7 @@ class KafkaMessenger(Messenger):
         except Exception as ex:
             print("serialization failed {}".format(ex))
         return sigs
+
+    def reconnect(self):
+        # kafka case do nothing on reconnect
+        return

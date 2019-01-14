@@ -38,6 +38,7 @@ class BlockSigning(DaemonThread):
 
                 if new_block == None:
                     print("could not get latest suggested block")
+                    self.messenger.reconnect()
                     continue
 
                 sig = self.get_blocksig(new_block)
@@ -63,6 +64,7 @@ class BlockSigning(DaemonThread):
                 sigs = self.messenger.consume_sigs(height)
                 if len(sigs) == 0:
                     print("could not get new block sigs")
+                    self.messenger.reconnect()
                     continue
                 self.generate_signed_block(block, sigs)
 
