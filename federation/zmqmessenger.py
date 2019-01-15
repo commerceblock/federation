@@ -46,13 +46,16 @@ class ZmqConsumer:
             return None, None
         return demogrify(self.socket.recv().decode())
 
-    def reconnect(self):
-        self.socket.connect("tcp://%s:%d" % (self.host, self.port))
+    def close(self):
+        zmq_poller.unregister(self.socket)
+        self.socket.close()
 
 class ZmqMessenger(Messenger):
     def __init__(self, nodes, my_id):
         Messenger.__init__(self, nodes, my_id)
         self.consumers = []
+        self.nodes = nodes
+        self.my_id = my_id
         for i, node in enumerate(nodes):
             host, port = node.split(':', 1)
             if i == my_id:
@@ -100,4 +103,10 @@ class ZmqMessenger(Messenger):
     def reconnect(self):
         print("Reconnecting consumers...")
         for consumer in self.consumers:
-            consumer.reconnect()
+            consumer.close()
+
+        self.consumers = []
+        for i, node in enumerate(self.nodes):
+            host, port = node.split(':', 1)
+            if i != self.my_id:
+                self.consumers.append(ZmqConsumer(host, int(port)))
