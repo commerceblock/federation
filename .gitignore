@@ -104,3 +104,6 @@ venv.bak/
 .mypy_cache/
 #emacs
 *~
+
+# hsm test stuff
+.hsm/

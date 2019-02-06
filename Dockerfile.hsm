@@ -1,0 +1,11 @@
+FROM centos:7.5.1804
+
+ADD .hsm/primus.tar /
+COPY .hsm/primus.cfg /usr/local/primus/etc/
+COPY .hsm/.secrets.cfg /usr/local/primus/etc/
+
+ENV PRIMUS_HOME=/usr/local/primus
+ENV PATH=$PRIMUS_HOME/bin:$PRIMUS_HOME/openssl/1.0.2m/bin:$PRIMUS_HOME/apache/2.4.29/bin:$PATH
+ENV LD_LIBRARY_PATH=$PRIMUS_HOME/lib:$LD_LIBRARY_PATH
+
+CMD ["bash", "-c"]
