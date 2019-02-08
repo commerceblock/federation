@@ -2,5 +2,9 @@
 import sys
 from federation import hsm
 
+test_hash = "73902d2a365fff2724e26d975148124268ec6a84991016683817ea2c973b199b"
+test_hash_bytes = bytes.fromhex(test_hash)
+
 hsm = hsm.Hsm(sys.argv[1])
-hsm.do()
+hsm.sign(test_hash_bytes)
+hsm.sign_engine(test_hash_bytes)

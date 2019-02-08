@@ -107,3 +107,5 @@ venv.bak/
 
 # hsm test stuff
 .hsm/
+data.txt
+sig.txt
