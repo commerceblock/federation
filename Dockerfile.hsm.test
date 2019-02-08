@@ -1,0 +1,27 @@
+FROM python:3.7.0-stretch
+
+# general hsm engine config
+ADD .hsm/primus.tar /
+
+ENV PRIMUS_HOME=/usr/local/primus
+ENV PATH=$PRIMUS_HOME/bin:$PRIMUS_HOME/openssl/1.0.2m/bin:$PRIMUS_HOME/apache/2.4.29/bin:$PATH
+ENV LD_LIBRARY_PATH=$PRIMUS_HOME/lib:$LD_LIBRARY_PATH
+
+# hsm connectivity and secrets
+COPY .hsm/primus.cfg /usr/local/primus/etc/
+COPY .hsm/.secrets.cfg /usr/local/primus/etc/
+COPY .hsm/priv_1.pem /usr/local
+
+# source code
+COPY requirements.txt run_hsm_test setup.py /usr/src/
+COPY federation/ /usr/src/federation
+
+# test source code run
+RUN set -x \
+    && cd /usr/src && ls -l \
+    && python setup.py build \
+    && python setup.py install \
+    && pip install -r requirements.txt \
+    && ./run_hsm_test /usr/local/priv_1.pem
+
+CMD ["bash", "-c"]

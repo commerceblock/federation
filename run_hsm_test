@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+import sys
+from federation import hsm
+
+hsm = hsm.Hsm(sys.argv[1])
+hsm.do()
