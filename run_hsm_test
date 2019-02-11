@@ -1,10 +1,34 @@
 #!/usr/bin/env python3
 import sys
+import os
+import pkcs11
+from pkcs11.util import ec
 from federation import hsm
 
+# open ssl attempt
 test_hash = "73902d2a365fff2724e26d975148124268ec6a84991016683817ea2c973b199b"
 test_hash_bytes = bytes.fromhex(test_hash)
 
 hsm = hsm.Hsm(sys.argv[1])
 hsm.sign(test_hash_bytes)
 hsm.sign_engine(test_hash_bytes)
+
+
+# pkcs11 attempt
+lib = pkcs11.lib("/usr/local/primus/lib/libprimusP11.so")
+
+tokens = lib.get_tokens(token_label='PRIMUS X-Series')
+token = next(tokens)
+
+# Open a session on our token
+with token.open(user_pin='6JL88T2H', rw=True) as session:
+
+    # Generate an EC keypair in this session from a named curve
+    ecparams = session.create_domain_parameters(
+        pkcs11.KeyType.EC, {
+            pkcs11.Attribute: ec.encode_named_curve_parameters('secp256k1'),
+        }, local=True)
+    pub, priv = ecparams.generate_keypair(None, "test-key")
+
+    # Sign
+    signature = priv.sign(test_hash_bytes)

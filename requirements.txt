@@ -1,3 +1,4 @@
 kafka-python
 pyzmq
 pyopenssl
+python-pkcs11
