@@ -1,4 +1,4 @@
-## init instructions
+## init openssl instructions
 
 ### gen priv
 openssl ecparam -name secp256k1 -genkey -noout -out hsm_priv.pem -engine primus

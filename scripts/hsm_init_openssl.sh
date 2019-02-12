@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# this is no longer used - only included for reference
+
 NUM_OF_KEYS=5
 NUM_OF_SIGS=3
 

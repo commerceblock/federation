@@ -20,3 +20,13 @@ Example use:
 
 - zmq: `python3 -m federation --rpconnect 127.0.0.1 --rpcport 18443 --rpcuser user --rpcpass pass --id 1 --msgtype zmq --nodes “node0:1503,node1:1502”`
 - kafka: `python3 -m federation --rpconnect 127.0.0.1 --rpcport 18443 --rpcuser user --rpcpass pass --id 1` (check federation.py - defaults to 5 nodes)
+
+### Using HSMs
+
+#### Initialisation
+
+Assuming hsm and pkcs11 libraries setup and all config/secrets files are in place run:
+
+`docker build --build-arg user_pin=$USER_PIN --build-arg key_label=$KEY_LABEL -f Dockerfile.hsm.init .`
+
+This will generate a multisig script that should be used as the `signblockarg` in the ocean sidechain.
