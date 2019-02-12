@@ -30,3 +30,9 @@ Assuming hsm and pkcs11 libraries setup and all config/secrets files are in plac
 `docker build --build-arg user_pin=$USER_PIN --build-arg key_label=$KEY_LABEL -f Dockerfile.hsm.init .`
 
 This will generate a multisig script that should be used as the `signblockarg` in the ocean sidechain.
+
+#### Test HSM signing
+
+Docker test fetching a key and signing using hsm via pkcs11.
+
+`docker build --build-arg user_pin=$USER_PIN --build-arg key_label=$KEY_LABEL -f Dockerfile.hsm.test .`
