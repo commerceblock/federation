@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import time
 import subprocess
 from OpenSSL import crypto
 from OpenSSL.crypto import FILETYPE_PEM
@@ -9,27 +10,44 @@ import pkcs11
 from pkcs11 import KeyType, ObjectClass, Mechanism, MechanismFlag, Attribute
 from pkcs11.util import ec
 
-
+# hsm pkcs11 interface
 class HsmPkcs11():
     def __init__(self, key_name):
         # load pkcs11 lib
         self.lib = pkcs11.lib(os.environ['PKCS11_LIB'])
         self.user_pin = os.environ['USER_PIN']
-        tokens = self.lib.get_tokens(token_label=os.environ['PKCS11_TOKEN_LABEL'])
-        self.token = next(tokens)
+        self.token = next(self.lib.get_tokens()) # get any token
         self.key_name = key_name
 
+        # initiate session via pkcs11
+        start = time.time()
+        self.session = self.token.open(user_pin=self.user_pin)
+        print("connect time {}s".format(time.time() - start))
+        start = time.time()
+
+        # get key returns >1 key for some reason
+        # key = session.get_key(object_class=ObjectClass.PRIVATE_KEY,
+        #                         key_type=KeyType.EC,
+        #                         label=self.key_name)
+
+        # get key by iterating through all session objects instead
+        iterator = self.session.get_objects({Attribute.KEY_TYPE: KeyType.EC,
+                                        Attribute.CLASS: ObjectClass.PRIVATE_KEY,
+                                        Attribute.LABEL: self.key_name})
+        self.key = next(iterator)
+        print("getkey time {}s".format(time.time() - start))
+        _ = next(iterator) # test get_objects() still returns > 1
+        iterator._finalize()
+
+    # sign msg with key
     def sign(self, msg):
-        # connect to hsm via pkcs11 token and pin
-        with self.token.open(user_pin=self.user_pin) as session:
-            for obj in session.get_objects({Attribute.KEY_TYPE: KeyType.EC,
-                                            Attribute.LABEL: self.key_name}):
-                if obj.object_class == ObjectClass.PRIVATE_KEY:
-                    self.key = obj
+        start = time.time()
+        signature = self.key.sign(msg, mechanism=Mechanism.ECDSA_SHA256)
 
-                    signature = self.key.sign(msg, mechanism=Mechanism.ECDSA_SHA256)
-                    return ec.encode_ecdsa_signature(signature) # get DER encoded
+        print("sign time {}s".format(time.time() - start))
+        return ec.encode_ecdsa_signature(signature) # get DER encoded
 
+# hsm openssl interface
 class HsmOpenssl():
     def __init__(self, key_name):
         self.key_name = key_name
