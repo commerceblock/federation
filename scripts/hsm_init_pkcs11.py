@@ -11,8 +11,8 @@ NUM_OF_SIGS=int(os.environ['NUM_OF_SIGS'])
 # load pkcs11 lib
 lib = pkcs11.lib(os.environ['PKCS11_LIB'])
 
-tokens = lib.get_tokens(token_label=os.environ['PKCS11_TOKEN_LABEL'])
-token = next(tokens)
+tokens = lib.get_tokens()
+token = next(tokens) # get any token
 
 # connect to hsm via pkcs11 token and pin
 with token.open(user_pin=os.environ['USER_PIN'], rw=True) as session:

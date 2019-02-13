@@ -18,7 +18,6 @@ RUN set -x \
 
 # set variables required by init script
 ENV PKCS11_LIB=$PRIMUS_HOME/lib/libprimusP11.so
-ENV PKCS11_TOKEN_LABEL='PRIMUS X-Series'
 
 ARG user_pin
 RUN test -n "$user_pin"
