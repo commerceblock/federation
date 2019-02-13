@@ -9,6 +9,9 @@ from OpenSSL.crypto import sign
 import pkcs11
 from pkcs11 import KeyType, ObjectClass, Mechanism, MechanismFlag, Attribute
 from pkcs11.util import ec
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import ec as eccrypto
 
 # hsm pkcs11 interface
 class HsmPkcs11():
@@ -29,12 +32,29 @@ class HsmPkcs11():
         # key = session.get_key(object_class=ObjectClass.PRIVATE_KEY,
         #                         key_type=KeyType.EC,
         #                         label=self.key_name)
+        # print(sum(1 for _ in self.session.get_objects({
+        #                                 Attribute.KEY_TYPE: KeyType.EC,
+        #                                 Attribute.CLASS: ObjectClass.PRIVATE_KEY,
+        #                                 Attribute.LABEL: self.key_name})))
 
         # get key by iterating through all session objects instead
         iterator = self.session.get_objects({Attribute.KEY_TYPE: KeyType.EC,
                                         Attribute.CLASS: ObjectClass.PRIVATE_KEY,
                                         Attribute.LABEL: self.key_name})
         self.key = next(iterator)
+        print(self.key)
+        print("getkey time {}s".format(time.time() - start))
+        _ = next(iterator) # test get_objects() still returns > 1
+        iterator._finalize()
+
+        iterator = self.session.get_objects({Attribute.KEY_TYPE: KeyType.EC,
+                                        Attribute.CLASS: ObjectClass.PUBLIC_KEY,
+                                        Attribute.LABEL: self.key_name})
+        pub = next(iterator)
+        print(pub)
+        pubder = ec.encode_ec_public_key(pub)
+        self.pubcrypto = serialization.load_der_public_key(pubder, default_backend())
+        print(self.pubcrypto._encode_point(serialization.PublicFormat.CompressedPoint).hex())
         print("getkey time {}s".format(time.time() - start))
         _ = next(iterator) # test get_objects() still returns > 1
         iterator._finalize()
@@ -43,6 +63,9 @@ class HsmPkcs11():
     def sign(self, msg):
         start = time.time()
         signature = self.key.sign(msg, mechanism=Mechanism.ECDSA_SHA256)
+
+        self.pubcrypto.verify(ec.encode_ecdsa_signature(signature),
+            msg, eccrypto.ECDSA(hashes.SHA256()))
 
         print("sign time {}s".format(time.time() - start))
         return ec.encode_ecdsa_signature(signature) # get DER encoded

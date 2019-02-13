@@ -3,6 +3,8 @@ import os
 import pkcs11
 from pkcs11 import KeyType, ObjectClass, Mechanism, MechanismFlag, Attribute
 from pkcs11.util import ec
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
 
 # multisig params
 NUM_OF_KEYS=int(os.environ['NUM_OF_KEYS'])
@@ -38,12 +40,20 @@ with token.open(user_pin=os.environ['USER_PIN'], rw=True) as session:
                     pub = obj
 
         print("{}".format(pub))
-        point = pub[Attribute.EC_POINT]
-        if point[1] == 0x41 and point[2] == 0x04:
-            x = int(point[3:35].hex(), 16)
-            y = int(point[35:].hex(), 16)
-            multisig += '21'
-            multisig += ('%02x' % (2+(y&1))) + ('%064x' % x)
+        pubder = ec.encode_ec_public_key(pub)
+        pubcrypto = serialization.load_der_public_key(pubder, default_backend())
+        multisig += '21'
+        multisig += pubcrypto.public_bytes(serialization.Encoding.X962,
+                        serialization.PublicFormat.CompressedPoint).hex()
+
+        # # do uncompressed -> compressed manually
+        # # similar result as above
+        # point = pub[Attribute.EC_POINT]
+        # if point[1] == 0x41 and point[2] == 0x04:
+        #     x = int(point[3:35].hex(), 16)
+        #     y = int(point[35:].hex(), 16)
+        #     multisig += '21'
+        #     multisig += ('%02x' % (2+(y&1))) + ('%064x' % x)
 
     multisig += "{}ae".format(50 + NUM_OF_KEYS)
     print("multisig script generated. use this as the signblockarg in the ocean sidechain.")
