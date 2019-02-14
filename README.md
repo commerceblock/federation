@@ -11,10 +11,14 @@ The client used by the federation nodes of the Ocean network performing block ge
 
 Federation arguments:
 
-- NODE_ID: Id of the Ocean node
-- DATADIR: Datadir of the Ocean node
-- MSG_TYPE: Messenger type used. Possible values: 'kafka', 'zmq' (optional, default='kafka')
-- NODES: List of node ip/domain names
+- `--rpconnect`: rpc host of Ocean node
+- `--rpcport`: rpc port of Ocean node
+- `--rpcuser`: rpc username
+- `--rpcpassword`: rpc password
+- `--id`: federation node id
+- `--msg_type`: Messenger type used. Possible values: 'kafka', 'zmq' (optional, default='kafka')
+- `--nodes`: List of node ip/domain names for zmq only
+- `--hsm`: Flag to enable signing with HSM
 
 Example use:
 
@@ -31,8 +35,12 @@ Assuming hsm and pkcs11 libraries setup and all config/secrets files are in plac
 
 This will generate a multisig script that should be used as the `signblockarg` in the ocean sidechain.
 
-#### Test HSM signing
+#### Running
 
-Docker test fetching a key and signing using hsm via pkcs11.
+To build the federation container with hsm signing run:
 
-`docker build --build-arg user_pin=$USER_PIN --build-arg key_label=$KEY_LABEL -f Dockerfile.hsm.test .`
+`docker build --build-arg user_pin=$USER_PIN --build-arg key_label=$KEY_LABEL -f Dockerfile.hsm .`
+
+Inside this container federation can be initiated by:
+
+`python3 -u -m federation --rpconnect signing1 --rpcport 18886 --rpcuser username1 --rpcpass password1 --id 1 --msgtype zmq --nodes "federation0:6666,federation1:7777,federation2:8888" --hsm 1`
