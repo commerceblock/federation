@@ -28,12 +28,12 @@ RUN test -n "$key_label"
 ENV USER_PIN=$user_pin
 ENV KEY_LABEL=$key_label
 
-# copy and run hsm test
-COPY run_hsm_test setup.py /usr/src/
-COPY federation/ /usr/src/federation
+# copy source and build
+COPY . /usr/src
 
 RUN set -x \
     && cd /usr/src \
-    && ./run_hsm_test
+    && python setup.py build \
+    && python setup.py install
 
 CMD ["bash", "-c"]

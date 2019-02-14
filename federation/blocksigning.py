@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 from time import sleep, time
+from hashlib import sha256 as _sha256
 from .daemon import DaemonThread
 from .test_framework.authproxy import JSONRPCException
 from .messenger_factory import MessengerFactory
 from .connectivity import getoceand
 
 class BlockSigning(DaemonThread):
-    def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time):
+    def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time, signer=None):
         super().__init__()
         self.ocean_conf = ocean_conf
         self.ocean = getoceand(self.ocean_conf)
@@ -14,6 +15,7 @@ class BlockSigning(DaemonThread):
         self.total = len(nodes)
         self.my_id = my_id % self.total
         self.messenger = MessengerFactory.get_messenger(messenger_type, nodes, self.my_id)
+        self.signer = signer
 
     def run(self):
         while not self.stop_event.is_set():
@@ -62,7 +64,7 @@ class BlockSigning(DaemonThread):
 
                 # THEN COLLECT SIGNATURES AND SUBMIT BLOCK
                 sigs = self.messenger.consume_sigs(height)
-                if len(sigs) == 0:
+                if len(sigs) == 0: # replace with numOfSigs - 1 ??
                     print("could not get new block sigs")
                     self.messenger.reconnect()
                     continue
@@ -86,6 +88,18 @@ class BlockSigning(DaemonThread):
 
     def get_blocksig(self, block):
         try:
+            # hsm block signer
+            if self.signer is not None:
+                # get block header bytes excluding last byte (Ocean SER_HASH BlockHeader)
+                block_header_bytes = get_header(bytes.fromhex(block))
+                block_header_for_hash_bytes = block_header_bytes[:len(block_header_bytes)-1]
+
+                # sign the hashed (once not twice) block header bytes
+                sig = self.signer.sign(sha256(block_header_for_hash_bytes))
+
+                # turn sig into scriptsig format
+                return "00{:02x}{}".format(len(sig), sig.hex())
+
             return self.ocean.signblock(block)
         except Exception as e:
             print("{}\nReconnecting to client...".format(e))
@@ -101,3 +115,21 @@ class BlockSigning(DaemonThread):
             print("node {} - submitted block {}".format(self.my_id, signedblock))
         except Exception as e:
             print("failed signing: {}".format(e))
+
+OCEAN_BASE_HEADER_SIZE = 172
+
+def header_hash(block):
+    challenge_size = block[OCEAN_BASE_HEADER_SIZE]
+    header_without_proof = block[:OCEAN_BASE_HEADER_SIZE+1+challenge_size]
+    return double_sha256(header_without_proof)
+
+def get_header(block):
+    challenge_size = block[OCEAN_BASE_HEADER_SIZE]
+    proof_size = block[OCEAN_BASE_HEADER_SIZE+1+challenge_size]
+    return block[:OCEAN_BASE_HEADER_SIZE+1+challenge_size+1+proof_size]
+
+def sha256(x):
+    return _sha256(x).digest()
+
+def double_sha256(x):
+    return sha256(sha256(x))

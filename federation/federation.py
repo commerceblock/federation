@@ -11,6 +11,7 @@ from decimal import *
 from pdb import set_trace
 from .test_framework.authproxy import AuthServiceProxy, JSONRPCException
 from .blocksigning import BlockSigning
+from .hsm import HsmPkcs11
 from .connectivity import getoceand, loadConfig
 
 NUM_OF_NODES_DEFAULT = 5
@@ -28,6 +29,7 @@ def parse_args():
     parser.add_argument('--msgtype', default=MESSENGER_TYPE_DEFAULT, type=str, help="Messenger type protocol used by federation. 'Kafka' and 'zmq' values supported")
     parser.add_argument('--nodes', default="", type=str, help="Nodes for zmq protocol. Example use 'node0:1503,node1:1502'")
 
+    parser.add_argument('--hsm', default=False, type=bool, help="Specify if an HSM will be used for signing blocks")
     return parser.parse_args()
 
 def main():
@@ -49,12 +51,16 @@ def main():
         # Maintain old behavior for Kafka
         nodes = ['']*NUM_OF_NODES_DEFAULT
 
+    signer = None
+    if args.hsm:
+        signer = HsmPkcs11("{}{}".format(os.environ['KEY_LABEL'], node_id))
+
     logging.basicConfig(
             format='%(asctime)s.%(msecs)s:%(name)s:%(thread)d:%(levelname)s:%(process)d:%(message)s',
             level=logging.INFO
             )
 
-    signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME)
+    signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME, signer)
     signing_node.start()
 
     try:
