@@ -81,11 +81,11 @@ def main():
     for i in range(0, num_of_nodes):
         datadir = tmpdir + "/main" + str(i)
         os.makedirs(datadir)
-        os.makedirs(datadir + "/terms-and-conditions")
+        os.makedirs(datadir + "/terms-and-conditions/ocean_test")
 
         confdir=os.path.join(os.path.dirname(__file__), "main"+str(i)+"/ocean.conf")
         shutil.copyfile(confdir, datadir+"/ocean.conf")
-        shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), datadir + "/terms-and-conditions/latest.txt")
+        shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), datadir + "/terms-and-conditions/ocean_test/latest.txt")
         mainconf = connectivity.loadConfig(confdir)
 
         print("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
@@ -104,9 +104,9 @@ def main():
     # EXPLORER FULL NODE
     explorer_datadir=tmpdir+"/explorer"
     os.makedirs(explorer_datadir)
-    os.makedirs(explorer_datadir + "/terms-and-conditions")
+    os.makedirs(explorer_datadir + "/terms-and-conditions/ocean_test")
     shutil.copyfile(os.path.join(os.path.dirname(__file__), 'explorer/ocean.conf'), explorer_datadir+"/ocean.conf")
-    shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), explorer_datadir + "/terms-and-conditions/latest.txt")
+    shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), explorer_datadir + "/terms-and-conditions/ocean_test/latest.txt")
     explconf = connectivity.loadConfig(os.path.join(os.path.dirname(__file__), 'explorer/ocean.conf'))
     ee = connectivity.startoceand(OCEAN_PATH, explorer_datadir, explconf, extra_args)
     time.sleep(5)

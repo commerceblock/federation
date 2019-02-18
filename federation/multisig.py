@@ -8,10 +8,10 @@ from .test_framework import (
 )
 from .connectivity import *
 
-WIF_PREFIX_MAIN = 128
+WIF_PREFIX_TEST = 239
 
 class MultiSig():
-    def __init__(self, nodes, sigs, compressed=True, wif_prefix=WIF_PREFIX_MAIN):
+    def __init__(self, nodes, sigs, compressed=True, wif_prefix=WIF_PREFIX_TEST):
         self.num_of_nodes = nodes
         self.num_of_sigs = sigs
         self.is_compressed = compressed
