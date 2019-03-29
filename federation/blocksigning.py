@@ -7,7 +7,7 @@ from .messenger_factory import MessengerFactory
 from .connectivity import getoceand
 
 class BlockSigning(DaemonThread):
-    def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time, signer=None):
+    def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time, in_rate, in_period, in_address, script, signer=None):
         super().__init__()
         self.ocean_conf = ocean_conf
         self.ocean = getoceand(self.ocean_conf)
@@ -15,13 +15,27 @@ class BlockSigning(DaemonThread):
         self.total = len(nodes)
         self.my_id = my_id % self.total
         self.messenger = MessengerFactory.get_messenger(messenger_type, nodes, self.my_id)
+        self.rate = in_rate
+        self.period = in_period
+        self.address = in_address
+        self.script = script
         self.signer = signer
+        if in_rate > 0:
+            try:
+                self.ocean.importprivkey(ocean_conf["reissuanceprivkey"])
+            except:
+                print("reissuance key not passed to node")
+            p2sh = self.ocean.decodescript(script)
+            ri_token_addr = p2sh["p2sh"]
+            self.ocean.importaddress(ri_token_addr)
 
     def run(self):
         while not self.stop_event.is_set():
             sleep(self.interval - time() % self.interval)
             start_time = int(time())
             step = int(time()) % (self.interval * self.total) / self.interval
+
+            print("step: "+str(step))
 
             height = self.get_blockcount()
             if height == None:
@@ -43,10 +57,20 @@ class BlockSigning(DaemonThread):
                     self.messenger.reconnect()
                     continue
 
-                sig = self.get_blocksig(new_block)
-                if sig == None:
+                sig = {}
+                sig["blocksig"] = self.get_blocksig(new_block["blockhex"])
+                if sig["blocksig"] == None:
                     print("could not sign new block")
                     continue
+
+                #if reissuance step, also recieve reissuance transactions
+                if self.rate > 0:
+                    if height % self.period == 0 and height != 0:
+                        sig["txsigs"] = self.get_tx_signatures(new_block["txs"], height)
+                        sig["id"] = self.my_id
+                        if sig["txsigs"] == None:
+                            print("could not sign reissuance txs")
+                            continue
 
                 self.messenger.produce_sig(sig, height + 1)
                 sleep(self.interval / 2 - (time() - start_time))
@@ -55,10 +79,19 @@ class BlockSigning(DaemonThread):
                 print("blockcount:{}".format(height))
                 print("node {} - producer".format(self.my_id))
 
-                block = self.get_newblockhex()
-                if block == None:
+                block = {}
+                block["blockhex"] = self.get_newblockhex()
+                if block["blockhex"] == None:
                     print("could not generate new block hex")
                     continue
+                #if reissuance step, create raw reissuance transactions
+                if self.rate > 0:
+                    if height % self.period == 0 and height != 0:
+                        block["txs"] = self.get_reissuance_txs(height)
+                        if block["txs"] == None:
+                            print("could not create reissuance txs")
+                            continue
+
                 self.messenger.produce_block(block, height + 1)
                 sleep(self.interval / 2 - (time() - start_time))
 
@@ -68,7 +101,23 @@ class BlockSigning(DaemonThread):
                     print("could not get new block sigs")
                     self.messenger.reconnect()
                     continue
-                self.generate_signed_block(block, sigs)
+                blocksigs = []
+                for sig in sigs:
+                    blocksigs.append(sig["blocksig"])
+                self.generate_signed_block(block["blockhex"], blocksigs)
+                if self.rate > 0:
+                    if height % self.period == 0 and height != 0:
+                        txsigs = [None] * self.total
+                        for sig in sigs:
+                            txsigs[sig["id"]] = sig["txsigs"]
+                        #add sigs for this node
+                        mysigs = self.get_tx_signatures(block["txs"], height)
+                        txsigs[self.my_id] = mysigs
+                        signed_txs = self.combine_tx_signatures(block["txs"],txsigs)
+                        send = self.send_reissuance_txs(signed_txs)
+                        if not send:
+                            print("could not send reissuance transactions")
+                            continue
 
     def get_blockcount(self):
         try:
@@ -115,6 +164,147 @@ class BlockSigning(DaemonThread):
             print("node {} - submitted block {}".format(self.my_id, signedblock))
         except Exception as e:
             print("failed signing: {}".format(e))
+
+    def get_reissuance_txs(self, height):
+        try:
+            p2sh = self.ocean.decodescript(self.script)
+            token_addr = p2sh["p2sh"]
+            raw_transactions = []
+            #retrieve the token report for re-issuing
+            utxorep = self.ocean.getutxoassetinfo()
+            #get the reissuance tokens from wallet
+            unspentlist = self.ocean.listunspent()
+            for unspent in unspentlist:
+                #re-issuance and policy tokens have issued amount over 100 as a convention
+                if "address" in unspent:
+                    if unspent["address"] == token_addr and unspent["amount"] > 99.0:
+                        #find the reissuance details and amounts
+                        for entry in utxorep:
+                            if entry["token"] == unspent["asset"]:
+                                amount_spendable = float(entry["amountspendable"])
+                                amount_frozen = float(entry["amountfrozen"])
+                                asset = entry["asset"]
+                                entropy = entry["entropy"]
+                                break
+                        #the spendable amount needs to be inflated over a period of 1 hour
+                        total_reissue = amount_spendable*(1.0+float(self.rate))**(1.0/(24*365))-amount_spendable
+                        #check to see if there are any assets unfrozen in the last interval
+                        amount_unfrozen = 0.0
+                        frzhist = self.ocean.getfreezehistory()
+                        for frzout in frzhist:
+                            if frzout["asset"] == asset:
+                                if frzout["end"] != 0 and frzout["end"] > height - self.period:
+                                    backdate = height - frzout["start"]
+                                    elapsed_interval = backdate // self.period
+                                    print("elapsed_interval: "+str(elapsed_interval))
+                                    amount_unfrozen = float(frzout["value"])
+                                    total_reissue += amount_unfrozen*(1.0+float(self.rate))**(elapsed_interval/(24*365))-amount_unfrozen
+                                    print("backdate reissue: "+ str(total_reissue))
+                        print("Reissue asset "+asset+" by "+str("%.8f" % total_reissue))
+                        tx = self.ocean.createrawreissuance(self.address,str("%.8f" % total_reissue),token_addr,str(unspent["amount"]),unspent["txid"],str(unspent["vout"]),entropy)
+                        tx["token"] = unspent["asset"]
+                        tx["txid"] = unspent["txid"]
+                        tx["vout"] = unspent["vout"]
+                        raw_transactions.append(tx)
+            return raw_transactions
+        except Exception as e:
+            print("failed tx signing: {}".format(e))
+            return None
+
+    def check_reissuance(self, transactions, height):
+        try:
+            mytransactions = self.get_reissuance_txs(height)
+            if mytransactions == transactions:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print("failed tx checking: {}".format(e))
+            return False
+
+    def get_tx_signatures(self, transactions, height):
+        try:
+            signatures = []
+            if self.check_reissuance(transactions, height):
+                p2sh = self.ocean.decodescript(self.script)
+                token_addr = p2sh["p2sh"]
+                validate = self.ocean.validateaddress(token_addr)
+                scriptpk = validate["scriptPubKey"]
+                privk = []
+                privk.append(self.ocean.dumpprivkey(p2sh["addresses"][self.my_id]))
+                for tx in transactions:
+                    inpts = []
+                    inpt = {}
+                    inpt["txid"] = tx["txid"]
+                    inpt["vout"] = tx["vout"]
+                    inpt["scriptPubKey"] = scriptpk
+                    inpt["redeemScript"] = self.script
+                    inpts.append(inpt)
+                    signedtx = self.ocean.signrawtransaction(tx["hex"],inpts,privk)
+                    sig = ""
+                    scriptsig = signedtx["errors"][0]["scriptSig"]
+                    ln = int(scriptsig[2:4],16)
+                    if ln > 0: sig = scriptsig[2:4] + scriptsig[4:4+2*ln]
+                    signatures.append(sig)
+            else:
+                print("reissuance tx error, node: {}".format(self.my_id))
+            return signatures
+        except Exception as e:
+            print("failed tx signing: {}".format(e))
+            return None
+
+    def int_to_pushdata(self,x):
+        x = int(x)
+        if x < 253: 
+            return "{:02x}".format(x)
+        else:
+            le = "{:04x}".format(x)
+            be = "".join([le[x:x+2] for x in range(0,len(le),2)][::-1])
+            return "fd"+be
+
+    def combine_tx_signatures(self, transactions, signatures):
+        try:
+            p2sh = self.ocean.decodescript(self.script)
+            nsigs = p2sh["reqSigs"]
+            itr_tx = 0
+            for tx in transactions:
+                mtx_p = tx["hex"][0:84]
+                mtx_s = tx["hex"][86:]
+                sigs = []
+                #for each tx, get the signatures
+                for itr in range(len(signatures)):
+                    try:
+                        sig = signatures[itr][itr_tx]
+                        sigs.append(sig)
+                        if len(sigs) == nsigs: break
+                    except:
+                        print("missing node {} signatures".format(itr))
+                scriptsig = "00"
+                if len(sigs) != nsigs:
+                    print("error: insufficient sigs for tx {}".format(itr_tx))
+                else:
+                    #concatenate sigs
+                    for s in sigs:
+                        scriptsig += s
+                    #add the redeem script
+                    rsln = len(self.script)//2
+                    lnh = hex(rsln)
+                    scriptsig += "4c" + lnh[2:] + self.script
+                sslh = self.int_to_pushdata(len(scriptsig)//2)
+                tx["hex"] = mtx_p + sslh + scriptsig + mtx_s
+                itr_tx += 1
+            return transactions
+        except Exception as e:
+            print("failed signature combination: {}".format(e))
+
+    def send_reissuance_txs(self, transactions):
+        try:
+            for tx in transactions:
+                txid = self.ocean.sendrawtransaction(tx["hex"])
+            return True
+        except Exception as e:
+            print("failed tx sending: {}".format(e))
+            return False
 
 OCEAN_BASE_HEADER_SIZE = 172
 

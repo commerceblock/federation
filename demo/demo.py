@@ -14,10 +14,11 @@ from federation.blocksigning import BlockSigning
 from federation.multisig import MultiSig
 from .client import Client
 
-OCEAN_PATH = "oceand"
+OCEAN_PATH = "/Users/ttrevethan/ocean2/ocean/src/oceand"
 DEFAULT_ENABLE_LOGGING = False
 DEFAULT_GENERATE_KEYS = False
 DEFAULT_RETAIN_DAEMONS = False
+DEFAULT_INFLATION_TXS = False
 MESSENGER_TYPE = 'zmq'
 
 def parse_args():
@@ -25,12 +26,26 @@ def parse_args():
     parser.add_argument('-l', '--enable-logging', default=DEFAULT_ENABLE_LOGGING, type=bool, help="Enable logging (default: %(default)s)")
     parser.add_argument('-g', '--generate-keys', default=DEFAULT_GENERATE_KEYS, type=bool, help="Generate keys for block generation and free coin issuance (default: %(default)s)")
     parser.add_argument('-r', '--retain-daemons', default=DEFAULT_RETAIN_DAEMONS, type=bool, help="Retain daemons and datadirs when demo stops (default: %(default)s)")
+    parser.add_argument('-i', '--inflation-txs', default=DEFAULT_INFLATION_TXS, type=bool, help="Generate and sign inflation transactions (default: %(default)s)")
     return parser.parse_args()
 
 def main():
     # GENERATE KEYS AND SINGBLOCK SCRIPT FOR SIGNING OF NEW BLOCKS
     args = parse_args()
     block_time = 60
+    if args.inflation_txs:
+        #yearly inflation rate
+        in_rate = 0.0101010101010101
+        #inflation applied every in_period blocks
+        in_period = 5
+        #address for the inflated tokens
+        in_address = "1PgAnrPYEoH2SzCs7AvK4vQGpVDhrDcK4r"
+    else:
+        in_rate = 0
+        in_period = None
+        in_address = None
+    #the script that the reissuance tokens are paid to
+    script = None
     num_of_nodes = 3
     num_of_sigs = 2
     num_of_clients = 2
@@ -69,6 +84,7 @@ def main():
         issuecontrolarg = data["issuecontrolarg"]
         coindestarg = data["coindestarg"]
         coindestkey = data["coindestkey"]
+        script = signblockarg.split('=')[1]
 
     if myfreecoins:
         extra_args =  "{} {} {} {}".format(signblockarg, coinbasearg, issuecontrolarg, coindestarg)
@@ -121,11 +137,11 @@ def main():
 
     node_signers = []
     for i in range(len(node_ids)):
-        node = BlockSigning(ocean_conf[i][0], MESSENGER_TYPE, node_ids, i, block_time)
+        node = BlockSigning(ocean_conf[i][0], MESSENGER_TYPE, node_ids, i, block_time, in_rate, in_period, in_address, script)
         node_signers.append(node)
         node.start()
 
-    client = Client(OCEAN_PATH, num_of_clients, extra_args, myfreecoins, coindestkey)
+    client = Client(OCEAN_PATH, num_of_clients, extra_args, script, args.inflation_txs, myfreecoins, coindestkey)
     client.start()
 
     try:
