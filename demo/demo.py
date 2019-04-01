@@ -109,6 +109,7 @@ def main():
         time.sleep(5)
         ocean_conf.append((mainconf, e))
         e.importprivkey(keys[i])
+        ocean_conf[i][0]["reissuanceprivkey"] = keys[i]
         time.sleep(2)
 
     if args.enable_logging:

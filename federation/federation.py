@@ -78,7 +78,7 @@ def main():
             level=logging.INFO
             )
 
-    signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME, INFLATION_RATE, INFLATION_PERIOD, INFLATION_ADDRESS, SCRIPT, signer)
+    signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME, inrate, inprd, inaddr, inscript, signer)
     signing_node.start()
 
     try:

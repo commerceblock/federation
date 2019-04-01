@@ -23,11 +23,20 @@ class BlockSigning(DaemonThread):
         if in_rate > 0:
             try:
                 self.ocean.importprivkey(ocean_conf["reissuanceprivkey"])
-            except:
-                print("reissuance key not passed to node")
-            p2sh = self.ocean.decodescript(script)
-            ri_token_addr = p2sh["p2sh"]
-            self.ocean.importaddress(ri_token_addr)
+            except Exception as e:
+                print("{}\nFailed to import reissuance private key".format(e))
+                self.stop_event.set()
+            self.riprivk = []
+            self.riprivk.append(ocean_conf["reissuanceprivkey"])
+            try:
+                p2sh = self.ocean.decodescript(script)
+            except Exception as e:
+                print("{}\nFailed to decode reissuance script".format(e))
+                self.stop_event.set()
+            self.p2sh = p2sh["p2sh"]
+            self.ocean.importaddress(self.p2sh)
+            validate = self.ocean.validateaddress(self.p2sh)
+            self.scriptpk = validate["scriptPubKey"]
 
     def run(self):
         while not self.stop_event.is_set():
@@ -66,7 +75,7 @@ class BlockSigning(DaemonThread):
                 #if reissuance step, also recieve reissuance transactions
                 if self.rate > 0:
                     if height % self.period == 0 and height != 0:
-                        sig["txsigs"] = self.get_tx_signatures(new_block["txs"], height)
+                        sig["txsigs"] = self.get_tx_signatures(new_block["txs"], height, True)
                         sig["id"] = self.my_id
                         if sig["txsigs"] == None:
                             print("could not sign reissuance txs")
@@ -101,23 +110,23 @@ class BlockSigning(DaemonThread):
                     print("could not get new block sigs")
                     self.messenger.reconnect()
                     continue
-                blocksigs = []
-                for sig in sigs:
-                    blocksigs.append(sig["blocksig"])
-                self.generate_signed_block(block["blockhex"], blocksigs)
                 if self.rate > 0:
                     if height % self.period == 0 and height != 0:
                         txsigs = [None] * self.total
                         for sig in sigs:
                             txsigs[sig["id"]] = sig["txsigs"]
                         #add sigs for this node
-                        mysigs = self.get_tx_signatures(block["txs"], height)
+                        mysigs = self.get_tx_signatures(block["txs"], height, False)
                         txsigs[self.my_id] = mysigs
                         signed_txs = self.combine_tx_signatures(block["txs"],txsigs)
                         send = self.send_reissuance_txs(signed_txs)
                         if not send:
                             print("could not send reissuance transactions")
                             continue
+                blocksigs = []
+                for sig in sigs:
+                    blocksigs.append(sig["blocksig"])
+                self.generate_signed_block(block["blockhex"], blocksigs)
 
     def get_blockcount(self):
         try:
@@ -222,25 +231,19 @@ class BlockSigning(DaemonThread):
             print("failed tx checking: {}".format(e))
             return False
 
-    def get_tx_signatures(self, transactions, height):
+    def get_tx_signatures(self, transactions, height, check):
         try:
             signatures = []
-            if self.check_reissuance(transactions, height):
-                p2sh = self.ocean.decodescript(self.script)
-                token_addr = p2sh["p2sh"]
-                validate = self.ocean.validateaddress(token_addr)
-                scriptpk = validate["scriptPubKey"]
-                privk = []
-                privk.append(self.ocean.dumpprivkey(p2sh["addresses"][self.my_id]))
+            if not check or self.check_reissuance(transactions, height):
                 for tx in transactions:
                     inpts = []
                     inpt = {}
                     inpt["txid"] = tx["txid"]
                     inpt["vout"] = tx["vout"]
-                    inpt["scriptPubKey"] = scriptpk
+                    inpt["scriptPubKey"] = self.scriptpk
                     inpt["redeemScript"] = self.script
                     inpts.append(inpt)
-                    signedtx = self.ocean.signrawtransaction(tx["hex"],inpts,privk)
+                    signedtx = self.ocean.signrawtransaction(tx["hex"],inpts,self.riprivk)
                     sig = ""
                     scriptsig = signedtx["errors"][0]["scriptSig"]
                     ln = int(scriptsig[2:4],16)
