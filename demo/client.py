@@ -96,7 +96,7 @@ class Client(multiprocessing.Process):
                 break
 
 if __name__ == "__main__":
-    path = "/Users/ttrevethan/ocean2/ocean/src/oceand"
+    path = "oceand"
     c = Client(path)
     c.start()
 
