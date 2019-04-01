@@ -23,7 +23,7 @@ class Client(multiprocessing.Process):
         self.issuers = []
         self.tmpdir="/tmp/"+''.join(random.choice('0123456789ABCDEF') for i in range(5))
         self.inflate = inflate
-        self.sendtx = ""
+        self.script = script
 
         for i in range(0, self.num_of_clients): # spawn ocean signing node
             datadir = self.tmpdir + "/client" + str(i)
@@ -43,15 +43,9 @@ class Client(multiprocessing.Process):
             if self.inflate:
                 if i == 0:
                     e.importprivkey(freecoinkey)
-                    addr = e.getnewaddress()
-                    addr2 = e.getnewaddress()
                     lstun = e.listunspent()
-                    p2sh = e.decodescript(script)
-                    token_addr = p2sh["p2sh"]
-                    rawissue = e.createrawissuance(addr,str(10.0),token_addr,'1000',addr2,'210000','1',lstun[0]["txid"],str(lstun[0]["vout"]))
-                    sign_issue = e.signrawtransaction(rawissue["rawtx"])
-                    self.sendtx = sign_issue
-                    sendtx = e.sendrawtransaction(sign_issue["hex"])
+                    self.issue_txid = lstun[0]["txid"]
+                    self.issue_vout = lstun[0]["vout"]
             else:
                 if not self.my_freecoins:
                     issuer = AssetIssuance(mainconf, WAIT_TIME)
@@ -89,7 +83,17 @@ class Client(multiprocessing.Process):
                     send_turn = (send_turn + 1) % self.num_of_clients
                 else:
                     ocean_client = getoceand(self.ocean_conf[send_turn][0])
-                    ocean_client.sendrawtransaction(self.sendtx["hex"])
+                    addr = ocean_client.getnewaddress()
+                    addr2 = ocean_client.getnewaddress()
+                    p2sh = ocean_client.decodescript(self.script)
+                    token_addr = p2sh["p2sh"]
+                    rawissue = ocean_client.createrawissuance(addr,str(10.0),token_addr,'1000',addr2,'210000','1',self.issue_txid,str(self.issue_vout))
+                    sign_issue = ocean_client.signrawtransaction(rawissue["rawtx"])
+                    self.issue_txid = ocean_client.sendrawtransaction(sign_issue["hex"])
+                    issue_decode = ocean_client.decoderawtransaction(sign_issue["hex"])
+                    for out in issue_decode["vout"]:
+                        if out["value"] == 210000.0:
+                            self.issue_vout = out["n"]
 
             time.sleep(WAIT_TIME)
             if self.stop_event.is_set():
