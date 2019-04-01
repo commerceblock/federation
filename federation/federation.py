@@ -17,6 +17,11 @@ from .connectivity import getoceand, loadConfig
 NUM_OF_NODES_DEFAULT = 5
 MESSENGER_TYPE_DEFAULT = "kafka"
 BLOCK_TIME = 60
+IN_RATE = 0
+IN_PERIOD = 0
+IN_ADDRESS = ""
+SCRIPT = ""
+PRVKEY = ""
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -28,6 +33,12 @@ def parse_args():
 
     parser.add_argument('--msgtype', default=MESSENGER_TYPE_DEFAULT, type=str, help="Messenger type protocol used by federation. 'Kafka' and 'zmq' values supported")
     parser.add_argument('--nodes', default="", type=str, help="Nodes for zmq protocol. Example use 'node0:1503,node1:1502'")
+
+    parser.add_argument('--inflationrate', default=IN_RATE, type=float, help="Inflation rate. Example 0.0101010101")
+    parser.add_argument('--inflationperiod', default=IN_PERIOD, type=int, help="Inflation period (in minutes)")
+    parser.add_argument('--inflationaddress', default=IN_ADDRESS, type=str, help="Address for inflation payments")
+    parser.add_argument('--reissuancescript', default=SCRIPT, type=str, help="Reissuance token script")
+    parser.add_argument('--reissuanceprivkey', default=PRVKEY, type=str, help="Reissuance private key")
 
     parser.add_argument('--hsm', default=False, type=bool, help="Specify if an HSM will be used for signing blocks")
     return parser.parse_args()
@@ -43,6 +54,13 @@ def main():
 
     node_id = args.id
     msg_type = args.msgtype
+
+    inrate = args.inflationrate
+    inprd = args.inflationperiod
+    inaddr = args.inflationaddress
+    inscript = args.reissuancescript
+    ripk = args.reissuanceprivkey
+    conf["reissuanceprivkey"] = ripk
 
     if args.nodes != "":
         # Provide ip:port for zmq protocol
@@ -60,7 +78,7 @@ def main():
             level=logging.INFO
             )
 
-    signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME, signer)
+    signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME, inrate, inprd, inaddr, inscript, signer)
     signing_node.start()
 
     try:
