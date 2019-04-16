@@ -83,7 +83,8 @@ class BlockSigning(DaemonThread):
                             continue
 
                 self.messenger.produce_sig(sig, height + 1)
-                sleep(self.interval / 2 - (time() - start_time))
+                elapsed_time = time() - start_time
+                sleep(self.interval / 2 - (elapsed_time if elapsed_time < self.interval / 2 else 0))
             else:
                 # OUR TURN - FIRST SEND NEW BLOCK HEX
                 print("blockcount:{}".format(height))
@@ -103,7 +104,8 @@ class BlockSigning(DaemonThread):
                             continue
 
                 self.messenger.produce_block(block, height + 1)
-                sleep(self.interval / 2 - (time() - start_time))
+                elapsed_time = time() - start_time
+                sleep(self.interval / 2 - (elapsed_time if elapsed_time < self.interval / 2 else 0))
 
                 # THEN COLLECT SIGNATURES AND SUBMIT BLOCK
                 sigs = self.messenger.consume_sigs(height)
