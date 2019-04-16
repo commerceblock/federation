@@ -34,6 +34,7 @@ class BlockSigning(DaemonThread):
                 print("{}\nFailed to decode reissuance script".format(e))
                 self.stop_event.set()
             self.p2sh = p2sh["p2sh"]
+            self.nsigs = p2sh["reqSigs"]
             self.ocean.importaddress(self.p2sh)
             validate = self.ocean.validateaddress(self.p2sh)
             self.scriptpk = validate["scriptPubKey"]
@@ -176,8 +177,7 @@ class BlockSigning(DaemonThread):
 
     def get_reissuance_txs(self, height):
         try:
-            p2sh = self.ocean.decodescript(self.script)
-            token_addr = p2sh["p2sh"]
+            token_addr = self.p2sh
             raw_transactions = []
             #retrieve the token report for re-issuing
             utxorep = self.ocean.getutxoassetinfo()
@@ -258,7 +258,7 @@ class BlockSigning(DaemonThread):
 
     def int_to_pushdata(self,x):
         x = int(x)
-        if x < 253: 
+        if x < 253:
             return "{:02x}".format(x)
         else:
             le = "{:04x}".format(x)
@@ -267,8 +267,6 @@ class BlockSigning(DaemonThread):
 
     def combine_tx_signatures(self, transactions, signatures):
         try:
-            p2sh = self.ocean.decodescript(self.script)
-            nsigs = p2sh["reqSigs"]
             itr_tx = 0
             for tx in transactions:
                 mtx_p = tx["hex"][0:84]
@@ -279,11 +277,11 @@ class BlockSigning(DaemonThread):
                     try:
                         sig = signatures[itr][itr_tx]
                         sigs.append(sig)
-                        if len(sigs) == nsigs: break
+                        if len(sigs) == self.nsigs: break
                     except:
                         print("missing node {} signatures".format(itr))
                 scriptsig = "00"
-                if len(sigs) != nsigs:
+                if len(sigs) != self.nsigs:
                     print("error: insufficient sigs for tx {}".format(itr_tx))
                 else:
                     #concatenate sigs
