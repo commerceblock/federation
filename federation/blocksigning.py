@@ -5,6 +5,7 @@ from .daemon import DaemonThread
 from .test_framework.authproxy import JSONRPCException
 from .messenger_factory import MessengerFactory
 from .connectivity import getoceand
+from decimal import Decimal
 
 class BlockSigning(DaemonThread):
     def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time, in_rate, in_period, in_address, script, signer=None):
@@ -20,6 +21,7 @@ class BlockSigning(DaemonThread):
         self.address = in_address
         self.script = script
         self.signer = signer
+        self.inconf = 1
         if in_rate > 0:
             try:
                 self.ocean.importprivkey(ocean_conf["reissuanceprivkey"])
@@ -73,14 +75,22 @@ class BlockSigning(DaemonThread):
                     print("could not sign new block")
                     continue
 
-                #if reissuance step, also recieve reissuance transactions
+                print(" node: "+str(self.my_id)+" inconf: "+str(self.inconf))
+                #if check to see if there are any reissuance transactions to sign
                 if self.rate > 0:
                     if height % self.period == 0 and height != 0:
+                        rtxs = self.get_reissuance_txs(height)
+                        if len(rtxs) == 0:
+                            self.inconf = 1
+                        elif len(rtxs) > 0:
+                            self.inconf = 0
+                    if height != 0 and height % self.period < self.period/2 and "txs" in new_block and self.inconf == 0:
                         sig["txsigs"] = self.get_tx_signatures(new_block["txs"], height, True)
                         sig["id"] = self.my_id
-                        if sig["txsigs"] == None:
-                            print("could not sign reissuance txs")
-                            continue
+                        if sig["txsigs"] == None and height % self.period == 0:
+                            print("could not sign reissuance txs on specified period block")
+                        elif sig["txsigs"] != None and height % self.period != 0:
+                            print("reissuance txs signed with delay of "+str(height % self.period)+" blocks")
 
                 self.messenger.produce_sig(sig, height + 1)
                 elapsed_time = time() - start_time
@@ -96,12 +106,38 @@ class BlockSigning(DaemonThread):
                     print("could not generate new block hex")
                     continue
                 #if reissuance step, create raw reissuance transactions
+                print(" node: "+str(self.my_id)+" inconf: "+str(self.inconf))
+                do_submit = 0
                 if self.rate > 0:
                     if height % self.period == 0 and height != 0:
                         block["txs"] = self.get_reissuance_txs(height)
                         if block["txs"] == None:
                             print("could not create reissuance txs")
                             continue
+                        if len(block["txs"]) == 0:
+                            print("no issued assets to inflate")
+                            self.inconf = 1
+                        elif len(block["txs"]) > 0:
+                            self.inconf = 0
+                            do_submit = 1
+                #if not reissuance step, in first 1/2 of inflation period and issuance not confirmed, then verify issuance
+                    elif self.inconf == 0 and height % self.period > 2 and height % self.period < self.period/2 and height != 0:
+                        riconf = self.confirm_reissuance_txs(height)
+                        print("confirmed: "+str(riconf)+" node "+str(self.my_id))
+                        if riconf:
+                            self.inconf = 1
+                        else:
+                            #attempt reissuance again
+                            block["txs"] = self.get_reissuance_txs(height)
+                            self.inconf = 0
+                            do_submit = 1
+                            if block["txs"] == None:
+                                print("could not create reissuance txs on retry")
+                                continue
+                #if reissuance still not confirmed after 30 minutes (period/2) then stop
+                    elif self.inconf == 0 and height % self.period > self.period/2:
+                        print("FATAL: could not issue inflation transactions")
+                        self.stop_event.set()
 
                 self.messenger.produce_block(block, height + 1)
                 elapsed_time = time() - start_time
@@ -114,7 +150,7 @@ class BlockSigning(DaemonThread):
                     self.messenger.reconnect()
                     continue
                 if self.rate > 0:
-                    if height % self.period == 0 and height != 0:
+                    if do_submit == 1:
                         txsigs = [None] * self.total
                         for sig in sigs:
                             txsigs[sig["id"]] = sig["txsigs"]
@@ -122,9 +158,9 @@ class BlockSigning(DaemonThread):
                         mysigs = self.get_tx_signatures(block["txs"], height, False)
                         txsigs[self.my_id] = mysigs
                         signed_txs = self.combine_tx_signatures(block["txs"],txsigs)
-                        send = self.send_reissuance_txs(signed_txs)
-                        if not send:
-                            print("could not send reissuance transactions")
+                        sent = self.send_reissuance_txs(signed_txs)
+                        if sent == None:
+                            print("could not send reissuance transactions. node "+str(self.my_id))
                             continue
                 blocksigs = []
                 for sig in sigs:
@@ -186,9 +222,9 @@ class BlockSigning(DaemonThread):
             #get the reissuance tokens from wallet
             unspentlist = self.ocean.listunspent()
             for unspent in unspentlist:
-                #re-issuance and policy tokens have issued amount over 100 as a convention
+                #re-issuance and policy tokens have issued amount of 10000 as a convention
                 if "address" in unspent:
-                    if unspent["address"] == token_addr and unspent["amount"] > 99.0:
+                    if unspent["address"] == token_addr and unspent["amount"] > 9999.0:
                         #find the reissuance details and amounts
                         for entry in utxorep:
                             if entry["token"] == unspent["asset"]:
@@ -199,7 +235,7 @@ class BlockSigning(DaemonThread):
                                 break
                         #the spendable amount needs to be inflated over a period of 1 hour
                         total_reissue = amount_spendable*(1.0+float(self.rate))**(1.0/(24*365))-amount_spendable
-                        #check to see if there are any assets unfrozen in the last interval
+                        #check to see if there are any assets unfrozenx in the last interval
                         amount_unfrozen = 0.0
                         frzhist = self.ocean.getfreezehistory()
                         for frzout in frzhist:
@@ -219,8 +255,43 @@ class BlockSigning(DaemonThread):
                         raw_transactions.append(tx)
             return raw_transactions
         except Exception as e:
-            print("failed tx signing: {}".format(e))
+            print("failed reissuance tx generation: {}".format(e))
             return None
+
+    def confirm_reissuance_txs(self, height):
+        try:
+            token_addr = self.p2sh
+            utxorep = self.ocean.getutxoassetinfo()
+            #get the reissuance tokens from wallet
+            unspentlist = self.ocean.listunspent()
+            numissue = 0
+            numnew = 0
+            for unspent in unspentlist:
+                #re-issuance and policy tokens have issued amount of 10000 as a convention
+                if "address" in unspent:
+                    if unspent["address"] == token_addr and unspent["amount"] > 9999.0:
+                        numissue += 1
+                        #check confirmation time - all reissuance tokens should have confirmed in the last 20 blocks (period/3)
+                        if unspent["confirmations"] > self.period/3:
+                            print("Warning: reissuance failure - unspent reissuance token output: ")
+                            print(unspent)
+                        else:
+                            numnew += 1
+            #if no reissuances or all issuances confirmed, return true
+            if numissue == 0:
+                return True
+            elif numnew == numissue:
+                return True
+            #if there are reissuances, but they are not confirmed, return false
+            elif numnew == 0 and numissue > 0:
+                return False
+            #if only some reissuances have confirmed but other haven't - stop
+            else:
+                print("FATAL: inflation transactions partially confirmed")
+                self.stop_event.set()
+        except Exception as e:
+            print("failed confirmation check: {}".format(e))
+            return False
 
     def check_reissuance(self, transactions, height):
         try:
@@ -230,7 +301,7 @@ class BlockSigning(DaemonThread):
             else:
                 return False
         except Exception as e:
-            print("failed tx checking: {}".format(e))
+            print("failed reissuance tx checking: {}".format(e))
             return False
 
     def get_tx_signatures(self, transactions, height, check):
@@ -255,7 +326,7 @@ class BlockSigning(DaemonThread):
                 print("reissuance tx error, node: {}".format(self.my_id))
             return signatures
         except Exception as e:
-            print("failed tx signing: {}".format(e))
+            print("failed reissuance tx signing: {}".format(e))
             return None
 
     def int_to_pushdata(self,x):
@@ -301,13 +372,15 @@ class BlockSigning(DaemonThread):
             print("failed signature combination: {}".format(e))
 
     def send_reissuance_txs(self, transactions):
+        txids = []
         try:
             for tx in transactions:
                 txid = self.ocean.sendrawtransaction(tx["hex"])
-            return True
+                txids.append(txid)
+            return txids
         except Exception as e:
             print("failed tx sending: {}".format(e))
-            return False
+            return None
 
 OCEAN_BASE_HEADER_SIZE = 172
 

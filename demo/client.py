@@ -87,9 +87,10 @@ class Client(multiprocessing.Process):
                     addr2 = ocean_client.getnewaddress()
                     p2sh = ocean_client.decodescript(self.script)
                     token_addr = p2sh["p2sh"]
-                    rawissue = ocean_client.createrawissuance(addr,str(10.0),token_addr,'1000',addr2,'210000','1',self.issue_txid,str(self.issue_vout))
+                    rawissue = ocean_client.createrawissuance(addr,str(10.0),token_addr,'10000',addr2,'210000','1',self.issue_txid,str(self.issue_vout))
                     sign_issue = ocean_client.signrawtransaction(rawissue["rawtx"])
                     self.issue_txid = ocean_client.sendrawtransaction(sign_issue["hex"])
+                    print("issued 210000 "+str(self.issue_txid))
                     issue_decode = ocean_client.decoderawtransaction(sign_issue["hex"])
                     for out in issue_decode["vout"]:
                         if out["value"] == 210000.0:

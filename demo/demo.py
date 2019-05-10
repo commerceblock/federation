@@ -14,7 +14,7 @@ from federation.blocksigning import BlockSigning
 from federation.multisig import MultiSig
 from .client import Client
 
-OCEAN_PATH = "oceand"
+OCEAN_PATH = "/Users/ttrevethan/ocean2/ocean/src/oceand"
 DEFAULT_ENABLE_LOGGING = False
 DEFAULT_GENERATE_KEYS = False
 DEFAULT_RETAIN_DAEMONS = False
@@ -35,9 +35,9 @@ def main():
     block_time = 60
     if args.inflation_txs:
         #yearly inflation rate
-        in_rate = 0.0101010101010101
+        in_rate = 0.010101010101010101
         #inflation applied every in_period blocks
-        in_period = 5
+        in_period = 12
         #address for the inflated tokens
         in_address = "1PgAnrPYEoH2SzCs7AvK4vQGpVDhrDcK4r"
     else:
@@ -126,7 +126,7 @@ def main():
     shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), explorer_datadir + "/terms-and-conditions/ocean_test/latest.txt")
     explconf = connectivity.loadConfig(os.path.join(os.path.dirname(__file__), 'explorer/ocean.conf'))
     ee = connectivity.startoceand(OCEAN_PATH, explorer_datadir, explconf, extra_args)
-    time.sleep(5)
+    time.sleep(2)
 
     # For ZMQ testing host of nodes is required to setup the sockets
     # Sockets are not thread safe though so only 2 nodes will be used,
