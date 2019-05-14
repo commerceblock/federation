@@ -247,8 +247,8 @@ class BlockSigning(DaemonThread):
                                     amount_unfrozen = float(frzout["value"])
                                     total_reissue += amount_unfrozen*(1.0+float(self.rate))**(elapsed_interval/(24*365))-amount_unfrozen
                                     print("backdate reissue: "+ str(total_reissue))
-                        print("Reissue asset "+asset+" by "+str("%.8f" % total_reissue))
-                        tx = self.ocean.createrawreissuance(self.address,str("%.8f" % total_reissue),token_addr,str(unspent["amount"]),unspent["txid"],str(unspent["vout"]),entropy)
+                        print("Reissue asset "+asset+" by "+str(round(total_reissue,8)))
+                        tx = self.ocean.createrawreissuance(self.address,str("%.8f" % round(total_reissue,8)),token_addr,str(unspent["amount"]),unspent["txid"],str(unspent["vout"]),entropy)
                         tx["token"] = unspent["asset"]
                         tx["txid"] = unspent["txid"]
                         tx["vout"] = unspent["vout"]
