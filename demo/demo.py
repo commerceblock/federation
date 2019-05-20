@@ -14,7 +14,7 @@ from federation.blocksigning import BlockSigning
 from federation.multisig import MultiSig
 from .client import Client
 
-OCEAN_PATH = "/Users/ttrevethan/ocean2/ocean/src/oceand"
+OCEAN_PATH = "oceand"
 DEFAULT_ENABLE_LOGGING = False
 DEFAULT_GENERATE_KEYS = False
 DEFAULT_RETAIN_DAEMONS = False
