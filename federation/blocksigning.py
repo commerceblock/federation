@@ -120,7 +120,7 @@ class BlockSigning(DaemonThread):
                         elif len(block["txs"]) > 0:
                             self.inconf = 0
                             do_submit = 1
-                #if not reissuance step, in first 1/2 of inflation period and issuance not confirmed, then verify issuance
+                    #if not reissuance step, in first 1/2 of inflation period and issuance not confirmed, then verify issuance
                     elif self.inconf == 0 and height % self.period > 2 and height % self.period < self.period/2 and height != 0:
                         riconf = self.confirm_reissuance_txs(height)
                         print("confirmed: "+str(riconf)+" node "+str(self.my_id))
@@ -134,7 +134,7 @@ class BlockSigning(DaemonThread):
                             if block["txs"] == None:
                                 print("could not create reissuance txs on retry")
                                 continue
-                #if reissuance still not confirmed after 30 minutes (period/2) then stop
+                    #if reissuance still not confirmed after 30 minutes (period/2) then stop
                     elif self.inconf == 0 and height % self.period > self.period/2:
                         print("FATAL: could not issue inflation transactions")
                         self.stop_event.set()
@@ -221,6 +221,7 @@ class BlockSigning(DaemonThread):
             utxorep = self.ocean.getutxoassetinfo()
             #get the reissuance tokens from wallet
             unspentlist = self.ocean.listunspent()
+            frzhist = self.ocean.getfreezehistory() # get freeze history
             for unspent in unspentlist:
                 #re-issuance and policy tokens have issued amount of 10000 as a convention
                 if "address" in unspent:
@@ -237,7 +238,6 @@ class BlockSigning(DaemonThread):
                         total_reissue = amount_spendable*(1.0+float(self.rate))**(1.0/(24*365))-amount_spendable
                         #check to see if there are any assets unfrozenx in the last interval
                         amount_unfrozen = 0.0
-                        frzhist = self.ocean.getfreezehistory()
                         for frzout in frzhist:
                             if frzout["asset"] == asset:
                                 if frzout["end"] != 0 and frzout["end"] > height - self.period:
