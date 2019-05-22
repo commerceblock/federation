@@ -109,3 +109,6 @@ venv.bak/
 .hsm/
 data.txt
 sig.txt
+
+# Mac stuff
+.DS_Store
