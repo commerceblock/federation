@@ -54,6 +54,7 @@ def main():
     coinbasearg = ""
     issuecontrolarg = ""
     coindestarg = ""
+    issuancedestarg = ""
     coindestkey = ""
     myfreecoins = True
 
@@ -68,11 +69,12 @@ def main():
         issue_sig = MultiSig(1, 1)
         coindestkey = issue_sig.wifs[0]
         coindestarg = "-initialfreecoinsdestination={}".format(issue_sig.script)
+        issuancedestarg = "-issuancecoinsdestination={}".format(issue_sig.script)
         issuecontrolarg = "-issuecontrolscript={}".format(issue_sig.script)
 
         with open('federation_data.json', 'w') as data_file:
             data = {"keys" : keys, "signblockarg" : signblockarg, "coinbasearg": coinbasearg, "coindestkey" : coindestkey,
-                "coindestarg": coindestarg, "issuecontrolarg": issuecontrolarg}
+                "coindestarg": coindestarg, "issuecontrolarg": issuecontrolarg, "issuancedestarg": issuancedestarg}
             json.dump(data, data_file)
 
     else:   # use hardcoded keys and multisig
@@ -82,12 +84,13 @@ def main():
         signblockarg = data["signblockarg"]
         coinbasearg = data["coinbasearg"]
         issuecontrolarg = data["issuecontrolarg"]
+        issuancedestarg = data["issuancedestarg"]
         coindestarg = data["coindestarg"]
         coindestkey = data["coindestkey"]
         script = signblockarg.split('=')[1]
 
     if myfreecoins:
-        extra_args =  "{} {} {} {}".format(signblockarg, coinbasearg, issuecontrolarg, coindestarg)
+        extra_args =  "{} {} {} {} {}".format(signblockarg, coinbasearg, issuecontrolarg, coindestarg, issuancedestarg)
     else:
         extra_args =  "{} {} {}".format(signblockarg, coinbasearg, issuecontrolarg)
 
