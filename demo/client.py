@@ -2,6 +2,7 @@
 import time
 import multiprocessing
 import random
+import logging
 from federation.connectivity import *
 
 WAIT_TIME = 60
@@ -12,6 +13,7 @@ REISSUANCE_TOKEN = 1
 class Client(multiprocessing.Process):
     def __init__(self, oceandir, numofclients, args, script, inflate, freecoinkey=""):
         multiprocessing.Process.__init__(self)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.daemon = True
         self.doinf = inflate
         self.stop_event = multiprocessing.Event()
@@ -33,7 +35,7 @@ class Client(multiprocessing.Process):
             shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), datadir + "/terms-and-conditions/ocean_test/latest.txt")
             mainconf = loadConfig(confdir)
 
-            print("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
+            self.logger.info("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
             e = startoceand(oceandir, datadir, mainconf, args)
             self.ocean_conf[i] = ((mainconf, e))
             time.sleep(10)
@@ -86,7 +88,7 @@ class Client(multiprocessing.Process):
                 rawissue = ocean_client.createrawissuance(addr,str(10.0),token_addr,'10000',addr2,'210000','1',self.issue_txid,str(self.issue_vout))
                 sign_issue = ocean_client.signrawtransaction(rawissue["rawtx"])
                 self.issue_txid = ocean_client.sendrawtransaction(sign_issue["hex"])
-                print("issued 210000 "+str(self.issue_txid))
+                self.logger.info("issued 210000 "+str(self.issue_txid))
                 issue_decode = ocean_client.decoderawtransaction(sign_issue["hex"])
                 for out in issue_decode["vout"]:
                     if out["value"] == 210000.0:

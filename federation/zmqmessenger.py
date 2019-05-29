@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import zmq
 import json
+import logging
 from .messenger import Messenger
 
 TOPIC_NEW_BLOCK = '10'
@@ -53,6 +54,7 @@ class ZmqConsumer:
 class ZmqMessenger(Messenger):
     def __init__(self, nodes, my_id):
         Messenger.__init__(self, nodes, my_id)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.consumers = []
         self.nodes = nodes
         self.my_id = my_id
@@ -101,7 +103,7 @@ class ZmqMessenger(Messenger):
         return sigs
 
     def reconnect(self):
-        print("Reconnecting consumers...")
+        self.logger.info("Reconnecting consumers...")
         for consumer in self.consumers:
             consumer.close()
 

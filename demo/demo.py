@@ -32,6 +32,13 @@ def parse_args():
 def main():
     # GENERATE KEYS AND SINGBLOCK SCRIPT FOR SIGNING OF NEW BLOCKS
     args = parse_args()
+
+    logging.basicConfig(
+        format='%(asctime)s %(name)s:%(levelname)s:%(process)d: %(message)s',
+        level=logging.INFO
+    )
+    logger = logging.getLogger("Demo")
+
     block_time = 60
     if args.inflation_txs:
         #yearly inflation rate
@@ -104,19 +111,15 @@ def main():
         shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), datadir + "/terms-and-conditions/ocean_test/latest.txt")
         mainconf = connectivity.loadConfig(confdir)
 
-        print("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
+        logger.info("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
         e = connectivity.startoceand(OCEAN_PATH, datadir, mainconf, extra_args)
-        time.sleep(5)
+        time.sleep(4)
         ocean_conf.append((mainconf, e))
         e.importprivkey(keys[i])
         ocean_conf[i][0]["reissuanceprivkey"] = keys[i]
-        time.sleep(2)
+        time.sleep(1)
 
-    if args.enable_logging:
-        logging.basicConfig(
-                format='%(asctime)s.%(msecs)s:%(name)s:%(thread)d:%(levelname)s:%(process)d:%(message)s',
-                level=logging.INFO
-                )
+
 
     # EXPLORER FULL NODE
     explorer_datadir=tmpdir+"/explorer"
