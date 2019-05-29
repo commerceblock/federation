@@ -56,7 +56,6 @@ def main():
     coindestarg = ""
     issuancedestarg = ""
     coindestkey = ""
-    myfreecoins = True
 
     if args.generate_keys:  # generate new signing keys and multisig
         if num_of_sigs > num_of_nodes:
@@ -89,10 +88,8 @@ def main():
         coindestkey = data["coindestkey"]
         script = signblockarg.split('=')[1]
 
-    if myfreecoins:
-        extra_args =  "{} {} {} {} {}".format(signblockarg, coinbasearg, issuecontrolarg, coindestarg, issuancedestarg)
-    else:
-        extra_args =  "{} {} {}".format(signblockarg, coinbasearg, issuecontrolarg)
+    extra_args =  "{} {} {} {} {}".\
+        format(signblockarg, coinbasearg, issuecontrolarg, coindestarg, issuancedestarg)
 
     # INIT THE OCEAN MAIN NODES
     ocean_conf = []
@@ -145,7 +142,7 @@ def main():
         node_signers.append(node)
         node.start()
 
-    client = Client(OCEAN_PATH, num_of_clients, extra_args, script, args.inflation_txs, myfreecoins, coindestkey)
+    client = Client(OCEAN_PATH, num_of_clients, extra_args, script, args.inflation_txs, coindestkey)
     client.start()
 
     try:
