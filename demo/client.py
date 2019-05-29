@@ -44,8 +44,12 @@ class Client(multiprocessing.Process):
                 if i == 0:
                     e.importprivkey(freecoinkey)
                     lstun = e.listunspent()
-                    self.issue_txid = lstun[0]["txid"]
-                    self.issue_vout = lstun[0]["vout"]
+                    for it in lstun:
+                        if 'assetlabel' in it:
+                            if it['assetlabel'] == 'ISSUANCE':
+                                self.issue_txid = it["txid"]
+                                self.issue_vout = it["vout"]
+                                break
             else:
                 if not self.my_freecoins:
                     issuer = AssetIssuance(mainconf, WAIT_TIME)
