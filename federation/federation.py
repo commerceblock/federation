@@ -46,6 +46,11 @@ def parse_args():
 def main():
     args = parse_args()
 
+    logging.basicConfig(
+        format='%(asctime)s %(name)s:%(levelname)s:%(process)d: %(message)s',
+        level=logging.INFO
+    )
+
     conf = {}
     conf["rpcuser"] = args.rpcuser
     conf["rpcpassword"] = args.rpcpassword
@@ -72,11 +77,6 @@ def main():
     signer = None
     if args.hsm:
         signer = HsmPkcs11("{}{}".format(os.environ['KEY_LABEL'], node_id))
-
-    logging.basicConfig(
-            format='%(asctime)s.%(msecs)s:%(name)s:%(thread)d:%(levelname)s:%(process)d:%(message)s',
-            level=logging.INFO
-            )
 
     signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME, inrate, inprd, inaddr, inscript, signer)
     signing_node.start()

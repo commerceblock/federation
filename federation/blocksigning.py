@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import sys
+import logging
 from time import sleep, time
 from hashlib import sha256 as _sha256
 from .daemon import DaemonThread
@@ -15,26 +17,29 @@ class BlockSigning(DaemonThread):
         self.interval = block_time
         self.total = len(nodes)
         self.my_id = my_id % self.total
+        self.logger = logging.getLogger(self.__class__.__name__)
+
         self.messenger = MessengerFactory.get_messenger(messenger_type, nodes, self.my_id)
+        self.signer = signer
+
         self.rate = in_rate
         self.period = in_period
         self.address = in_address
         self.script = script
-        self.signer = signer
         self.inconf = 1
         if in_rate > 0:
             try:
                 self.ocean.importprivkey(ocean_conf["reissuanceprivkey"])
             except Exception as e:
-                print("{}\nFailed to import reissuance private key".format(e))
-                self.stop_event.set()
+                self.logger.error("{}\nFailed to import reissuance private key".format(e))
+                sys.exit(1)
             self.riprivk = []
             self.riprivk.append(ocean_conf["reissuanceprivkey"])
             try:
                 p2sh = self.ocean.decodescript(script)
             except Exception as e:
-                print("{}\nFailed to decode reissuance script".format(e))
-                self.stop_event.set()
+                self.logger.error("{}\nFailed to decode reissuance script".format(e))
+                sys.exit(1)
             self.p2sh = p2sh["p2sh"]
             self.nsigs = p2sh["reqSigs"]
             self.ocean.importaddress(self.p2sh)
@@ -47,16 +52,14 @@ class BlockSigning(DaemonThread):
             start_time = int(time())
             step = int(time()) % (self.interval * self.total) / self.interval
 
-            print("step: "+str(step))
-
             height = self.get_blockcount()
             if height == None:
-                print("could not connect to ocean client")
+                self.logger.warning("could not connect to ocean client")
                 continue
 
             if self.my_id != int(step):
                 # NOT OUR TURN - GET BLOCK AND SEND SIGNATURE ONLY
-                print("node {} - consumer".format(self.my_id))
+                self.logger.info("node {} - consumer".format(self.my_id))
 
                 new_block = None
                 while new_block == None:
@@ -65,19 +68,19 @@ class BlockSigning(DaemonThread):
                     new_block = self.messenger.consume_block(height)
 
                 if new_block == None:
-                    print("could not get latest suggested block")
+                    self.logger.warning("could not get latest suggested block")
                     self.messenger.reconnect()
                     continue
 
                 sig = {}
                 sig["blocksig"] = self.get_blocksig(new_block["blockhex"])
                 if sig["blocksig"] == None:
-                    print("could not sign new block")
+                    self.logger.warning("could not sign new block")
                     continue
 
-                print(" node: "+str(self.my_id)+" inconf: "+str(self.inconf))
-                #if check to see if there are any reissuance transactions to sign
+                # Inflation only check to see if there are any reissuance transactions to sign
                 if self.rate > 0:
+                    self.logger.info("node: {} - inflationconf: {}".format(str(self.my_id), str(self.inconf)))
                     if height % self.period == 0 and height != 0:
                         rtxs = self.get_reissuance_txs(height)
                         if len(rtxs) == 0:
@@ -88,34 +91,35 @@ class BlockSigning(DaemonThread):
                         sig["txsigs"] = self.get_tx_signatures(new_block["txs"], height, True)
                         sig["id"] = self.my_id
                         if sig["txsigs"] == None and height % self.period == 0:
-                            print("could not sign reissuance txs on specified period block")
+                            self.logger.warning("could not sign reissuance txs on specified period block")
                         elif sig["txsigs"] != None and height % self.period != 0:
-                            print("reissuance txs signed with delay of "+str(height % self.period)+" blocks")
+                            self.logger.warning("reissuance txs signed with delay of "+str(height % self.period)+" blocks")
 
                 self.messenger.produce_sig(sig, height + 1)
                 elapsed_time = time() - start_time
                 sleep(self.interval / 2 - (elapsed_time if elapsed_time < self.interval / 2 else 0))
             else:
                 # OUR TURN - FIRST SEND NEW BLOCK HEX
-                print("blockcount:{}".format(height))
-                print("node {} - producer".format(self.my_id))
+                self.logger.info("blockcount:{}".format(height))
+                self.logger.info("node {} - producer".format(self.my_id))
 
                 block = {}
                 block["blockhex"] = self.get_newblockhex()
                 if block["blockhex"] == None:
-                    print("could not generate new block hex")
+                    self.logger.warning("could not generate new block hex")
                     continue
+
                 #if reissuance step, create raw reissuance transactions
-                print(" node: "+str(self.my_id)+" inconf: "+str(self.inconf))
                 do_submit = 0
                 if self.rate > 0:
+                    self.logger.info("node: {} - inflationconf: {}".format(str(self.my_id), str(self.inconf)))
                     if height % self.period == 0 and height != 0:
                         block["txs"] = self.get_reissuance_txs(height)
                         if block["txs"] == None:
-                            print("could not create reissuance txs")
+                            self.logger.warning("could not create reissuance txs")
                             continue
                         if len(block["txs"]) == 0:
-                            print("no issued assets to inflate")
+                            self.logger.info("no issued assets to inflate")
                             self.inconf = 1
                         elif len(block["txs"]) > 0:
                             self.inconf = 0
@@ -123,7 +127,7 @@ class BlockSigning(DaemonThread):
                     #if not reissuance step, in first 1/2 of inflation period and issuance not confirmed, then verify issuance
                     elif self.inconf == 0 and height % self.period > 2 and height % self.period < self.period/2 and height != 0:
                         riconf = self.confirm_reissuance_txs(height)
-                        print("confirmed: "+str(riconf)+" node "+str(self.my_id))
+                        self.logger.info("confirmed: "+str(riconf)+" node "+str(self.my_id))
                         if riconf:
                             self.inconf = 1
                         else:
@@ -132,11 +136,11 @@ class BlockSigning(DaemonThread):
                             self.inconf = 0
                             do_submit = 1
                             if block["txs"] == None:
-                                print("could not create reissuance txs on retry")
+                                self.logger.warning("could not create reissuance txs on retry")
                                 continue
                     #if reissuance still not confirmed after 30 minutes (period/2) then stop
                     elif self.inconf == 0 and height % self.period > self.period/2:
-                        print("FATAL: could not issue inflation transactions")
+                        self.logger.error("FATAL: could not issue inflation transactions")
                         self.stop_event.set()
 
                 self.messenger.produce_block(block, height + 1)
@@ -146,7 +150,7 @@ class BlockSigning(DaemonThread):
                 # THEN COLLECT SIGNATURES AND SUBMIT BLOCK
                 sigs = self.messenger.consume_sigs(height)
                 if len(sigs) == 0: # replace with numOfSigs - 1 ??
-                    print("could not get new block sigs")
+                    self.logger.warning("could not get new block sigs")
                     self.messenger.reconnect()
                     continue
                 if self.rate > 0:
@@ -160,7 +164,7 @@ class BlockSigning(DaemonThread):
                         signed_txs = self.combine_tx_signatures(block["txs"],txsigs)
                         sent = self.send_reissuance_txs(signed_txs)
                         if sent == None:
-                            print("could not send reissuance transactions. node "+str(self.my_id))
+                            self.logger.warning("could not send reissuance transactions. node "+str(self.my_id))
                             continue
                 blocksigs = []
                 for sig in sigs:
@@ -171,7 +175,7 @@ class BlockSigning(DaemonThread):
         try:
             return self.ocean.getblockcount()
         except Exception as e:
-            print("{}\nReconnecting to client...".format(e))
+            self.logger.info("{}\nReconnecting to client...".format(e))
             self.ocean = getoceand(self.ocean_conf)
             return None
 
@@ -179,7 +183,7 @@ class BlockSigning(DaemonThread):
         try:
             return self.ocean.getnewblockhex()
         except Exception as e:
-            print("{}\nReconnecting to client...".format(e))
+            self.logger.info("{}\nReconnecting to client...".format(e))
             self.ocean = getoceand(self.ocean_conf)
             return None
 
@@ -199,7 +203,7 @@ class BlockSigning(DaemonThread):
 
             return self.ocean.signblock(block)
         except Exception as e:
-            print("{}\nReconnecting to client...".format(e))
+            self.logger.info("{}\nReconnecting to client...".format(e))
             self.ocean = getoceand(self.ocean_conf)
             return None
 
@@ -209,9 +213,11 @@ class BlockSigning(DaemonThread):
             blockresult = self.ocean.combineblocksigs(block, sigs)
             signedblock = blockresult["hex"]
             self.ocean.submitblock(signedblock)
-            print("node {} - submitted block {}".format(self.my_id, signedblock))
+            self.logger.info("node {} - submitted block {}".format(self.my_id, signedblock))
         except Exception as e:
-            print("failed signing: {}".format(e))
+            self.logger.info("{}\nReconnecting to client...\nfailed signing".format(e))
+            self.ocean = getoceand(self.ocean_conf)
+            return None
 
     def get_reissuance_txs(self, height):
         try:
@@ -243,11 +249,11 @@ class BlockSigning(DaemonThread):
                                 if frzout["end"] != 0 and frzout["end"] > height - self.period:
                                     backdate = height - frzout["start"]
                                     elapsed_interval = backdate // self.period
-                                    print("elapsed_interval: "+str(elapsed_interval))
+                                    self.logger.info("elapsed_interval: "+str(elapsed_interval))
                                     amount_unfrozen = float(frzout["value"])
                                     total_reissue += amount_unfrozen*(1.0+float(self.rate))**(elapsed_interval/(24*365))-amount_unfrozen
-                                    print("backdate reissue: "+ str(total_reissue))
-                        print("Reissue asset "+asset+" by "+str(round(total_reissue,8)))
+                                    self.logger.info("backdate reissue: "+ str(total_reissue))
+                        self.logger.info("Reissue asset "+asset+" by "+str(round(total_reissue,8)))
                         tx = self.ocean.createrawreissuance(self.address,str("%.8f" % round(total_reissue,8)),token_addr,str(unspent["amount"]),unspent["txid"],str(unspent["vout"]),entropy)
                         tx["token"] = unspent["asset"]
                         tx["txid"] = unspent["txid"]
@@ -255,7 +261,7 @@ class BlockSigning(DaemonThread):
                         raw_transactions.append(tx)
             return raw_transactions
         except Exception as e:
-            print("failed reissuance tx generation: {}".format(e))
+            self.logger.warning("failed reissuance tx generation: {}".format(e))
             return None
 
     def confirm_reissuance_txs(self, height):
@@ -273,8 +279,8 @@ class BlockSigning(DaemonThread):
                         numissue += 1
                         #check confirmation time - all reissuance tokens should have confirmed in the last 20 blocks (period/3)
                         if unspent["confirmations"] > self.period/3:
-                            print("Warning: reissuance failure - unspent reissuance token output: ")
-                            print(unspent)
+                            self.logger.warning("Warning: reissuance failure - unspent reissuance token output: ")
+                            self.logger.warning(unspent)
                         else:
                             numnew += 1
             #if no reissuances or all issuances confirmed, return true
@@ -287,10 +293,10 @@ class BlockSigning(DaemonThread):
                 return False
             #if only some reissuances have confirmed but other haven't - stop
             else:
-                print("FATAL: inflation transactions partially confirmed")
+                self.logger.error("FATAL: inflation transactions partially confirmed")
                 self.stop_event.set()
         except Exception as e:
-            print("failed confirmation check: {}".format(e))
+            self.logger.warning("failed confirmation check: {}".format(e))
             return False
 
     def check_reissuance(self, transactions, height):
@@ -301,7 +307,7 @@ class BlockSigning(DaemonThread):
             else:
                 return False
         except Exception as e:
-            print("failed reissuance tx checking: {}".format(e))
+            self.logger.warning("failed reissuance tx checking: {}".format(e))
             return False
 
     def get_tx_signatures(self, transactions, height, check):
@@ -323,10 +329,10 @@ class BlockSigning(DaemonThread):
                     if ln > 0: sig = scriptsig[2:4] + scriptsig[4:4+2*ln]
                     signatures.append(sig)
             else:
-                print("reissuance tx error, node: {}".format(self.my_id))
+                self.logger.warning("reissuance tx error, node: {}".format(self.my_id))
             return signatures
         except Exception as e:
-            print("failed reissuance tx signing: {}".format(e))
+            self.logger.warning("failed reissuance tx signing: {}".format(e))
             return None
 
     def int_to_pushdata(self,x):
@@ -352,10 +358,10 @@ class BlockSigning(DaemonThread):
                         sigs.append(sig)
                         if len(sigs) == self.nsigs: break
                     except:
-                        print("missing node {} signatures".format(itr))
+                        self.logger.warning("missing node {} signatures".format(itr))
                 scriptsig = "00"
                 if len(sigs) != self.nsigs:
-                    print("error: insufficient sigs for tx {}".format(itr_tx))
+                    self.logger.warning("error: insufficient sigs for tx {}".format(itr_tx))
                 else:
                     #concatenate sigs
                     for s in sigs:
@@ -369,7 +375,8 @@ class BlockSigning(DaemonThread):
                 itr_tx += 1
             return transactions
         except Exception as e:
-            print("failed signature combination: {}".format(e))
+            self.logger.warning("failed signature combination: {}".format(e))
+            return None
 
     def send_reissuance_txs(self, transactions):
         txids = []
@@ -379,7 +386,7 @@ class BlockSigning(DaemonThread):
                 txids.append(txid)
             return txids
         except Exception as e:
-            print("failed tx sending: {}".format(e))
+            self.logger.warning("failed tx sending: {}".format(e))
             return None
 
 OCEAN_BASE_HEADER_SIZE = 172

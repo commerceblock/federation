@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import json
+import logging
 from .messenger import Messenger
 from kafka import KafkaConsumer, KafkaProducer
 
@@ -10,6 +11,7 @@ TOPIC_NEW_SIG   = 'new-sig'
 class KafkaMessenger(Messenger):
     def __init__(self, nodes, my_id):
         Messenger.__init__(self, nodes, my_id)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.my_sig_topic = TOPIC_NEW_SIG + "{}".format(my_id)
         self.all_sig_topics = [TOPIC_NEW_SIG + "{}".format(i) for i in range(len(nodes))]
 
@@ -52,7 +54,7 @@ class KafkaMessenger(Messenger):
                 if message.topic in self.all_sig_topics and int(message.value.get("height", 0)) > height:
                     sigs.append(message.value.get("sig", ""))
         except Exception as ex:
-            print("serialization failed {}".format(ex))
+            self.logger.info("serialization failed {}".format(ex))
         return sigs
 
     def reconnect(self):

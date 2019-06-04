@@ -32,6 +32,13 @@ def parse_args():
 def main():
     # GENERATE KEYS AND SINGBLOCK SCRIPT FOR SIGNING OF NEW BLOCKS
     args = parse_args()
+
+    logging.basicConfig(
+        format='%(asctime)s %(name)s:%(levelname)s:%(process)d: %(message)s',
+        level=logging.INFO
+    )
+    logger = logging.getLogger("Demo")
+
     block_time = 60
     if args.inflation_txs:
         #yearly inflation rate
@@ -54,8 +61,8 @@ def main():
     coinbasearg = ""
     issuecontrolarg = ""
     coindestarg = ""
+    issuancedestarg = ""
     coindestkey = ""
-    myfreecoins = True
 
     if args.generate_keys:  # generate new signing keys and multisig
         if num_of_sigs > num_of_nodes:
@@ -68,11 +75,12 @@ def main():
         issue_sig = MultiSig(1, 1)
         coindestkey = issue_sig.wifs[0]
         coindestarg = "-initialfreecoinsdestination={}".format(issue_sig.script)
+        issuancedestarg = "-issuancecoinsdestination={}".format(issue_sig.script)
         issuecontrolarg = "-issuecontrolscript={}".format(issue_sig.script)
 
         with open('federation_data.json', 'w') as data_file:
             data = {"keys" : keys, "signblockarg" : signblockarg, "coinbasearg": coinbasearg, "coindestkey" : coindestkey,
-                "coindestarg": coindestarg, "issuecontrolarg": issuecontrolarg}
+                "coindestarg": coindestarg, "issuecontrolarg": issuecontrolarg, "issuancedestarg": issuancedestarg}
             json.dump(data, data_file)
 
     else:   # use hardcoded keys and multisig
@@ -82,14 +90,13 @@ def main():
         signblockarg = data["signblockarg"]
         coinbasearg = data["coinbasearg"]
         issuecontrolarg = data["issuecontrolarg"]
+        issuancedestarg = data["issuancedestarg"]
         coindestarg = data["coindestarg"]
         coindestkey = data["coindestkey"]
         script = signblockarg.split('=')[1]
 
-    if myfreecoins:
-        extra_args =  "{} {} {} {}".format(signblockarg, coinbasearg, issuecontrolarg, coindestarg)
-    else:
-        extra_args =  "{} {} {}".format(signblockarg, coinbasearg, issuecontrolarg)
+    extra_args =  "{} {} {} {} {}".\
+        format(signblockarg, coinbasearg, issuecontrolarg, coindestarg, issuancedestarg)
 
     # INIT THE OCEAN MAIN NODES
     ocean_conf = []
@@ -104,19 +111,15 @@ def main():
         shutil.copyfile(os.path.join(os.path.dirname(__file__), 'latest.txt'), datadir + "/terms-and-conditions/ocean_test/latest.txt")
         mainconf = connectivity.loadConfig(confdir)
 
-        print("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
+        logger.info("Starting node {} with datadir {} and confdir {}".format(i, datadir, confdir))
         e = connectivity.startoceand(OCEAN_PATH, datadir, mainconf, extra_args)
-        time.sleep(5)
+        time.sleep(4)
         ocean_conf.append((mainconf, e))
         e.importprivkey(keys[i])
         ocean_conf[i][0]["reissuanceprivkey"] = keys[i]
-        time.sleep(2)
+        time.sleep(1)
 
-    if args.enable_logging:
-        logging.basicConfig(
-                format='%(asctime)s.%(msecs)s:%(name)s:%(thread)d:%(levelname)s:%(process)d:%(message)s',
-                level=logging.INFO
-                )
+
 
     # EXPLORER FULL NODE
     explorer_datadir=tmpdir+"/explorer"
@@ -142,7 +145,7 @@ def main():
         node_signers.append(node)
         node.start()
 
-    client = Client(OCEAN_PATH, num_of_clients, extra_args, script, args.inflation_txs, myfreecoins, coindestkey)
+    client = Client(OCEAN_PATH, num_of_clients, extra_args, script, args.inflation_txs, coindestkey)
     client.start()
 
     try:

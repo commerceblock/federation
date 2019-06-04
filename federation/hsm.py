@@ -2,6 +2,7 @@
 import os
 import time
 import subprocess
+import logging
 from OpenSSL import crypto
 from OpenSSL.crypto import FILETYPE_PEM
 from OpenSSL.crypto import load_privatekey
@@ -16,6 +17,8 @@ from cryptography.hazmat.primitives.asymmetric import ec as eccrypto
 # hsm pkcs11 interface
 class HsmPkcs11():
     def __init__(self, key_name):
+        self.logger = logging.getLogger("BitcoinRPC")
+
         # load pkcs11 lib
         self.lib = pkcs11.lib(os.environ['PKCS11_LIB'])
         self.user_pin = os.environ['USER_PIN']
@@ -25,7 +28,7 @@ class HsmPkcs11():
         # initiate session via pkcs11
         start = time.time()
         self.session = self.token.open(user_pin=self.user_pin)
-        print("time (connect) {}s".format(time.time() - start))
+        self.logger.info("time (connect) {}s".format(time.time() - start))
         start = time.time()
 
         # get key returns >1 key for some reason
@@ -38,8 +41,8 @@ class HsmPkcs11():
                                         Attribute.CLASS: ObjectClass.PRIVATE_KEY,
                                         Attribute.LABEL: self.key_name})
         self.key = next(iterator)
-        print(self.key)
-        print("time (get private key) {}s".format(time.time() - start))
+        self.logger.info(self.key)
+        self.logger.info("time (get private key) {}s".format(time.time() - start))
         start = time.time()
         _ = next(iterator) # test get_objects() still returns > 1
         iterator._finalize()
@@ -48,10 +51,10 @@ class HsmPkcs11():
                                         Attribute.CLASS: ObjectClass.PUBLIC_KEY,
                                         Attribute.LABEL: self.key_name})
         pub = next(iterator)
-        print(pub)
+        self.logger.info(pub)
         pubder = ec.encode_ec_public_key(pub)
         self.pubcrypto = serialization.load_der_public_key(pubder, default_backend())
-        print("time (get public key) {}s".format(time.time() - start))
+        self.logger.info("time (get public key) {}s".format(time.time() - start))
         _ = next(iterator) # test get_objects() still returns > 1
         iterator._finalize()
 
@@ -59,7 +62,7 @@ class HsmPkcs11():
     def sign(self, msg):
         start = time.time()
         signature = self.key.sign(msg, mechanism=Mechanism.ECDSA_SHA256)
-        print("time (sign) {}s".format(time.time() - start))
+        self.logger.info("time (sign) {}s".format(time.time() - start))
 
         self.pubcrypto.verify(ec.encode_ecdsa_signature(signature),
             msg, eccrypto.ECDSA(hashes.SHA256()))
@@ -77,7 +80,7 @@ class HsmOpenssl():
         priv_key = load_privatekey(FILETYPE_PEM, self.key)
 
         sig = sign(priv_key, msg, "sha256")
-        print("sign\n{}".format(sig.hex()))
+        self.logger.info("sign\n{}".format(sig.hex()))
 
     def sign_engine(self, msg):
         f = open('data.txt', 'wb')
@@ -88,5 +91,5 @@ class HsmOpenssl():
         output = subprocess.check_output(['bash','-c', command])
 
         with open('sig.txt', 'rb') as sig_file:
-            print("sign engine\n{}".format(sig_file.read().hex()))
+            self.logger.info("sign engine\n{}".format(sig_file.read().hex()))
             os.remove('sig.txt')
