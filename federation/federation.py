@@ -76,7 +76,7 @@ def main():
 
     signer = None
     if args.hsm:
-        signer = HsmPkcs11("{}{}".format(os.environ['KEY_LABEL'], node_id))
+        signer = HsmPkcs11(os.environ['KEY_LABEL'])
 
     signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME, inrate, inprd, inaddr, inscript, signer)
     signing_node.start()
