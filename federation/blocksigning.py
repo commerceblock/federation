@@ -29,7 +29,7 @@ class BlockSigning(DaemonThread):
         self.inconf = 1
         if in_rate > 0:
             try:
-                self.ocean.importprivkey(ocean_conf["reissuanceprivkey"])
+                self.ocean.importprivkey(ocean_conf["reissuanceprivkey"],"privkey",True)
             except Exception as e:
                 self.logger.error("{}\nFailed to import reissuance private key".format(e))
                 sys.exit(1)
@@ -42,7 +42,7 @@ class BlockSigning(DaemonThread):
                 sys.exit(1)
             self.p2sh = p2sh["p2sh"]
             self.nsigs = p2sh["reqSigs"]
-            self.ocean.importaddress(self.p2sh)
+            self.ocean.importaddress(self.p2sh,"reissuance")
             validate = self.ocean.validateaddress(self.p2sh)
             self.scriptpk = validate["scriptPubKey"]
 
@@ -220,6 +220,9 @@ class BlockSigning(DaemonThread):
             return None
 
     def get_reissuance_txs(self, height):
+        #check that the reissuance address has been imported, and if not import
+        if self.ocean.getaccount(self.p2sh) != "reissuance":
+            self.ocean.importaddress(self.p2sh,"reissuance")
         try:
             token_addr = self.p2sh
             raw_transactions = []
