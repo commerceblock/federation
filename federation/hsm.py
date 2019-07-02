@@ -44,7 +44,7 @@ class HsmPkcs11():
         self.logger.info(self.key)
         self.logger.info("time (get private key) {}s".format(time.time() - start))
         start = time.time()
-        _ = next(iterator) # test get_objects() still returns > 1
+        #_ = next(iterator) # test get_objects() still returns > 1
         iterator._finalize()
 
         iterator = self.session.get_objects({Attribute.KEY_TYPE: KeyType.EC,
@@ -55,7 +55,7 @@ class HsmPkcs11():
         pubder = ec.encode_ec_public_key(pub)
         self.pubcrypto = serialization.load_der_public_key(pubder, default_backend())
         self.logger.info("time (get public key) {}s".format(time.time() - start))
-        _ = next(iterator) # test get_objects() still returns > 1
+        #_ = next(iterator) # test get_objects() still returns > 1
         iterator._finalize()
 
     # sign msg with key

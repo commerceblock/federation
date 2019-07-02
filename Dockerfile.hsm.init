@@ -27,8 +27,6 @@ RUN test -n "$key_label"
 
 ENV USER_PIN=$user_pin
 ENV KEY_LABEL=$key_label
-ENV NUM_OF_KEYS=5
-ENV NUM_OF_SIGS=3
 
 # copy and run init script
 COPY scripts/hsm_init_pkcs11.py .
