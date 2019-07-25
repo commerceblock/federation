@@ -79,21 +79,24 @@ class BlockSigning(DaemonThread):
                     continue
 
                 # Inflation only check to see if there are any reissuance transactions to sign
-                if self.rate > 0:
+                if self.rate > 0 and height > 0:
                     self.logger.info("node: {} - inflationconf: {}".format(str(self.my_id), str(self.inconf)))
-                    if height % self.period == 0 and height != 0:
+                    rtxs = []
+                    if height % self.period == 0:
                         rtxs = self.get_reissuance_txs(height)
-                        if len(rtxs) == 0:
-                            self.inconf = 1
-                        elif len(rtxs) > 0:
-                            self.inconf = 0
-                    if height != 0 and height % self.period < self.period/2 and "txs" in new_block and self.inconf == 0:
-                        sig["txsigs"] = self.get_tx_signatures(new_block["txs"], height, True)
+                        self.inconf = 1 if len(rtxs) == 0 else 0
+                    if self.inconf == 0 and "txs" in new_block:
+                        sig["txsigs"] = None
                         sig["id"] = self.my_id
-                        if sig["txsigs"] == None and height % self.period == 0:
-                            self.logger.warning("could not sign reissuance txs on specified period block")
-                        elif sig["txsigs"] != None and height % self.period != 0:
-                            self.logger.warning("reissuance txs signed with delay of "+str(height % self.period)+" blocks")
+                        if height % self.period == 0:
+                            if rtxs == new_block["txs"]:
+                                sig["txsigs"] = self.get_tx_signatures(new_block["txs"], height, False)
+                            if sig["txsigs"] == None:
+                                self.logger.warning("could not sign reissuance txs on specified period block")
+                        elif height % self.period < self.period/2:
+                            sig["txsigs"] = self.get_tx_signatures(new_block["txs"], height, True)
+                            if sig["txsigs"] != None:
+                                self.logger.warning("reissuance txs signed with delay of "+str(height % self.period)+" blocks")
 
                 self.messenger.produce_sig(sig, height + 1)
                 elapsed_time = time() - start_time
@@ -111,9 +114,9 @@ class BlockSigning(DaemonThread):
 
                 #if reissuance step, create raw reissuance transactions
                 do_submit = 0
-                if self.rate > 0:
+                if self.rate > 0 and height > 0:
                     self.logger.info("node: {} - inflationconf: {}".format(str(self.my_id), str(self.inconf)))
-                    if height % self.period == 0 and height != 0:
+                    if height % self.period == 0:
                         block["txs"] = self.get_reissuance_txs(height)
                         if block["txs"] == None:
                             self.logger.warning("could not create reissuance txs")
@@ -121,11 +124,11 @@ class BlockSigning(DaemonThread):
                         if len(block["txs"]) == 0:
                             self.logger.info("no issued assets to inflate")
                             self.inconf = 1
-                        elif len(block["txs"]) > 0:
+                        else:
                             self.inconf = 0
                             do_submit = 1
                     #if not reissuance step, in first 1/2 of inflation period and issuance not confirmed, then verify issuance
-                    elif self.inconf == 0 and height % self.period > 2 and height % self.period < self.period/2 and height != 0:
+                    elif self.inconf == 0 and height % self.period > 2 and height % self.period < self.period/2:
                         riconf = self.confirm_reissuance_txs(height)
                         self.logger.info("confirmed: "+str(riconf)+" node "+str(self.my_id))
                         if riconf:
@@ -149,7 +152,7 @@ class BlockSigning(DaemonThread):
 
                 # THEN COLLECT SIGNATURES AND SUBMIT BLOCK
                 sigs = self.messenger.consume_sigs(height)
-                if len(sigs) == 0: # replace with numOfSigs - 1 ??
+                if len(sigs) < self.nsigs - 1:
                     self.logger.warning("could not get new block sigs")
                     self.messenger.reconnect()
                     continue
@@ -157,7 +160,8 @@ class BlockSigning(DaemonThread):
                     if do_submit == 1:
                         txsigs = [None] * self.total
                         for sig in sigs:
-                            txsigs[sig["id"]] = sig["txsigs"]
+                            if "id" in sig and "txsigs" in sig:
+                                txsigs[sig["id"]] = sig["txsigs"]
                         #add sigs for this node
                         mysigs = self.get_tx_signatures(block["txs"], height, False)
                         txsigs[self.my_id] = mysigs
