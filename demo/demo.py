@@ -46,7 +46,7 @@ def main():
         #inflation applied every in_period blocks
         in_period = 12
         #address for the inflated tokens
-        in_address = "1PgAnrPYEoH2SzCs7AvK4vQGpVDhrDcK4r"
+        in_address = "2dhFEhLTn21bqWC74kAtJqSyf6ykdkNQk27"
     else:
         in_rate = 0
         in_period = None
