@@ -83,8 +83,9 @@ def main():
 
     try:
         while 1:
-            time.sleep(300)
-
+            if signing_node.stopped():
+                raise Exception("Signing Node thread has stopped")
+            time.sleep(0.01)
     except KeyboardInterrupt:
         signing_node.stop()
 

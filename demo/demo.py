@@ -150,20 +150,28 @@ def main():
 
     try:
         while 1:
-            time.sleep(300)
+            for i, node in enumerate(node_signers):
+                if node.stopped():
+                    raise Exception("Node {} thread has stopped".format(i))
+
+            if client.stopped():
+                raise Exception("Client thread has stopped")
+
+            time.sleep(0.01)
 
     except KeyboardInterrupt:
+        logger.error("KeyboardInterrupt")
+    finally:
         if not args.retain_daemons:
             for node in node_signers:
                 node.stop()
-
-            for ocean in ocean_conf:
-                ocean[1].stop()
-
-            ee.stop()
             client.stop()
 
             shutil.rmtree(tmpdir)
+
+            for ocean in ocean_conf:
+                ocean[1].stop()
+            ee.stop()
 
 if __name__ == "__main__":
     main()

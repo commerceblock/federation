@@ -4,19 +4,18 @@ import multiprocessing
 import random
 import logging
 from federation.connectivity import *
+from federation.daemon import DaemonThread
 
 WAIT_TIME = 60
 ISSUANCE_AMOUNT = 100000
 REISSUANCE_AMOUNT = 50
 REISSUANCE_TOKEN = 1
 
-class Client(multiprocessing.Process):
+class Client(DaemonThread):
     def __init__(self, oceandir, numofclients, args, script, inflate, freecoinkey=""):
-        multiprocessing.Process.__init__(self)
+        super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.daemon = True
         self.doinf = inflate
-        self.stop_event = multiprocessing.Event()
         self.ocean_conf = [None]*numofclients
         self.num_of_clients = numofclients
         self.assets = [None]*numofclients
@@ -62,12 +61,12 @@ class Client(multiprocessing.Process):
         shutil.rmtree(self.tmpdir)
         for issuer in self.issuers:
             issuer.stop()
-        self.stop_event.set()
+        super().stop()
 
     def run(self):
         send_turn = 0
         send_issuance = 0
-        while not self.stop_event.is_set():
+        while not self.stopped():
             if not self.inflate:
                 # get random addr from nodes
                 addr = getoceand(self.ocean_conf[random.randint(0,self.num_of_clients-1)][0]).getnewaddress()
@@ -95,8 +94,6 @@ class Client(multiprocessing.Process):
                         self.issue_vout = out["n"]
 
             time.sleep(WAIT_TIME)
-            if self.stop_event.is_set():
-                break
 
 if __name__ == "__main__":
     path = "oceand"
@@ -105,7 +102,10 @@ if __name__ == "__main__":
 
     try:
         while 1:
-            time.sleep(300)
-
+            if ee.stopped():
+                raise Exception("Explorer thread has stopped")
+            time.sleep(0.01)
+    except Exception as e:
+        logger.error(traceback.format_exc())
     except KeyboardInterrupt:
         c.stop()
