@@ -9,17 +9,19 @@ from .messenger_factory import MessengerFactory
 from .connectivity import getoceand
 from decimal import Decimal
 
+BLOCK_TIME_DEFAULT = 60
+
 class BlockSigning(DaemonThread):
-    def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time, in_rate, in_period, in_address, script, signer=None):
+    def __init__(self, conf, nodes, in_rate, in_period, in_address, script, signer=None):
         super().__init__()
-        self.ocean_conf = ocean_conf
-        self.ocean = getoceand(self.ocean_conf)
-        self.interval = block_time
+        self.conf = conf
+        self.ocean = getoceand(self.conf)
+        self.interval = BLOCK_TIME_DEFAULT if "blocktime" not in conf else conf["blocktime"]
         self.total = len(nodes)
-        self.my_id = my_id % self.total
+        self.my_id = conf["id"] % self.total
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        self.messenger = MessengerFactory.get_messenger(messenger_type, nodes, self.my_id)
+        self.messenger = MessengerFactory.get_messenger(conf["msgtype"], nodes, self.my_id)
         self.signer = signer
 
         self.rate = in_rate
@@ -27,14 +29,15 @@ class BlockSigning(DaemonThread):
         self.address = in_address
         self.script = script
         self.inconf = 1
+        self.nsigs = conf["nsigs"]
         if in_rate > 0:
             try:
-                self.ocean.importprivkey(ocean_conf["reissuanceprivkey"],"privkey",True)
+                self.ocean.importprivkey(conf["reissuanceprivkey"],"privkey",True)
             except Exception as e:
                 self.logger.error("{}\nFailed to import reissuance private key".format(e))
                 sys.exit(1)
             self.riprivk = []
-            self.riprivk.append(ocean_conf["reissuanceprivkey"])
+            self.riprivk.append(conf["reissuanceprivkey"])
             try:
                 p2sh = self.ocean.decodescript(script)
             except Exception as e:
@@ -47,14 +50,13 @@ class BlockSigning(DaemonThread):
             self.scriptpk = validate["scriptPubKey"]
 
     def run(self):
-        while not self.stop_event.is_set():
+        while not self.stopped():
             sleep(self.interval - time() % self.interval)
             start_time = int(time())
             step = int(time()) % (self.interval * self.total) / self.interval
 
             height = self.get_blockcount()
             if height == None:
-                self.logger.warning("could not connect to ocean client")
                 continue
 
             if self.my_id != int(step):
@@ -144,7 +146,7 @@ class BlockSigning(DaemonThread):
                     #if reissuance still not confirmed after 30 minutes (period/2) then stop
                     elif self.inconf == 0 and height % self.period > self.period/2:
                         self.logger.error("FATAL: could not issue inflation transactions")
-                        self.stop_event.set()
+                        self.stop()
 
                 self.messenger.produce_block(block, height + 1)
                 elapsed_time = time() - start_time
@@ -175,21 +177,21 @@ class BlockSigning(DaemonThread):
                     blocksigs.append(sig["blocksig"])
                 self.generate_signed_block(block["blockhex"], blocksigs)
 
+    def rpc_retry(self, rpc_func, *args):
+        for i in range(5):
+            try:
+                return rpc_func(*args)
+            except Exception as e:
+                self.logger.warning("{}\nReconnecting to client...".format(e))
+                self.ocean = getoceand(self.conf)
+        self.logger.error("Failed reconnecting to client")
+        self.stop()
+
     def get_blockcount(self):
-        try:
-            return self.ocean.getblockcount()
-        except Exception as e:
-            self.logger.info("{}\nReconnecting to client...".format(e))
-            self.ocean = getoceand(self.ocean_conf)
-            return None
+        return self.rpc_retry(self.ocean.getblockcount)
 
     def get_newblockhex(self):
-        try:
-            return self.ocean.getnewblockhex()
-        except Exception as e:
-            self.logger.info("{}\nReconnecting to client...".format(e))
-            self.ocean = getoceand(self.ocean_conf)
-            return None
+        return self.rpc_retry(self.ocean.getnewblockhex)
 
     def get_blocksig(self, block):
         try:
@@ -205,23 +207,23 @@ class BlockSigning(DaemonThread):
                 # turn sig into scriptsig format
                 return "00{:02x}{}".format(len(sig), sig.hex())
 
-            return self.ocean.signblock(block)
+            return self.rpc_retry(self.ocean.signblock, block)
         except Exception as e:
-            self.logger.info("{}\nReconnecting to client...".format(e))
-            self.ocean = getoceand(self.ocean_conf)
+            self.logger.warning("{}\ncould not get block sig".format(e))
             return None
 
     def generate_signed_block(self, block, sigs):
         try:
             sigs.append(self.get_blocksig(block))
-            blockresult = self.ocean.combineblocksigs(block, sigs)
+            blockresult = self.rpc_retry(self.ocean.combineblocksigs, block, sigs)
             signedblock = blockresult["hex"]
-            self.ocean.submitblock(signedblock)
-            self.logger.info("node {} - submitted block {}".format(self.my_id, signedblock))
+            if blockresult["complete"] == True:
+                self.rpc_retry(self.ocean.submitblock, signedblock)
+                self.logger.info("node {} - submitted block {}".format(self.my_id, signedblock))
+            else:
+                self.logger.info("node {} - block not submitted".format(self.my_id))
         except Exception as e:
-            self.logger.info("{}\nReconnecting to client...\nfailed signing".format(e))
-            self.ocean = getoceand(self.ocean_conf)
-            return None
+            self.logger.warning("{}\ncould not generate signed block".format(e))
 
     def get_reissuance_txs(self, height):
         #check that the reissuance address has been imported, and if not import
@@ -301,7 +303,7 @@ class BlockSigning(DaemonThread):
             #if only some reissuances have confirmed but other haven't - stop
             else:
                 self.logger.error("FATAL: inflation transactions partially confirmed")
-                self.stop_event.set()
+                self.stop()
         except Exception as e:
             self.logger.warning("failed confirmation check: {}".format(e))
             return False

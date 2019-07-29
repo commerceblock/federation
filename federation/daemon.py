@@ -11,6 +11,9 @@ class Daemon(ABC):
     def stop(self):
         self.stop_event.set()
 
+    def stopped(self):
+        return self.stop_event.is_set()
+
     @abstractmethod
     def run(self):
         pass

@@ -117,9 +117,11 @@ def main():
         ocean_conf.append((mainconf, e))
         e.importprivkey(keys[i])
         ocean_conf[i][0]["reissuanceprivkey"] = keys[i]
+        ocean_conf[i][0]["id"] = i
+        ocean_conf[i][0]["msgtype"] = MESSENGER_TYPE
+        ocean_conf[i][0]["blocktime"] = block_time
+        ocean_conf[i][0]["nsigs"] = num_of_sigs
         time.sleep(1)
-
-
 
     # EXPLORER FULL NODE
     explorer_datadir=tmpdir+"/explorer"
@@ -141,7 +143,7 @@ def main():
 
     node_signers = []
     for i in range(len(node_ids)):
-        node = BlockSigning(ocean_conf[i][0], MESSENGER_TYPE, node_ids, i, block_time, in_rate, in_period, in_address, script)
+        node = BlockSigning(ocean_conf[i][0], node_ids, in_rate, in_period, in_address, script)
         node_signers.append(node)
         node.start()
 
@@ -150,20 +152,28 @@ def main():
 
     try:
         while 1:
-            time.sleep(300)
+            for i, node in enumerate(node_signers):
+                if node.stopped():
+                    raise Exception("Node {} thread has stopped".format(i))
+
+            if client.stopped():
+                raise Exception("Client thread has stopped")
+
+            time.sleep(0.01)
 
     except KeyboardInterrupt:
+        logger.error("KeyboardInterrupt")
+    finally:
         if not args.retain_daemons:
             for node in node_signers:
                 node.stop()
-
-            for ocean in ocean_conf:
-                ocean[1].stop()
-
-            ee.stop()
             client.stop()
 
             shutil.rmtree(tmpdir)
+
+            for ocean in ocean_conf:
+                ocean[1].stop()
+            ee.stop()
 
 if __name__ == "__main__":
     main()
