@@ -9,17 +9,19 @@ from .messenger_factory import MessengerFactory
 from .connectivity import getoceand
 from decimal import Decimal
 
+BLOCK_TIME_DEFAULT = 60
+
 class BlockSigning(DaemonThread):
-    def __init__(self, ocean_conf, messenger_type, nodes, my_id, block_time, in_rate, in_period, in_address, script, signer=None):
+    def __init__(self, conf, nodes, in_rate, in_period, in_address, script, signer=None):
         super().__init__()
-        self.ocean_conf = ocean_conf
-        self.ocean = getoceand(self.ocean_conf)
-        self.interval = block_time
+        self.conf = conf
+        self.ocean = getoceand(self.conf)
+        self.interval = BLOCK_TIME_DEFAULT if "blocktime" not in conf else conf["blocktime"]
         self.total = len(nodes)
-        self.my_id = my_id % self.total
+        self.my_id = conf["id"] % self.total
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        self.messenger = MessengerFactory.get_messenger(messenger_type, nodes, self.my_id)
+        self.messenger = MessengerFactory.get_messenger(conf["msgtype"], nodes, self.my_id)
         self.signer = signer
 
         self.rate = in_rate
@@ -27,15 +29,15 @@ class BlockSigning(DaemonThread):
         self.address = in_address
         self.script = script
         self.inconf = 1
-        self.nsigs = 1 # TODO: from config
+        self.nsigs = conf["nsigs"]
         if in_rate > 0:
             try:
-                self.ocean.importprivkey(ocean_conf["reissuanceprivkey"],"privkey",True)
+                self.ocean.importprivkey(conf["reissuanceprivkey"],"privkey",True)
             except Exception as e:
                 self.logger.error("{}\nFailed to import reissuance private key".format(e))
                 sys.exit(1)
             self.riprivk = []
-            self.riprivk.append(ocean_conf["reissuanceprivkey"])
+            self.riprivk.append(conf["reissuanceprivkey"])
             try:
                 p2sh = self.ocean.decodescript(script)
             except Exception as e:
@@ -181,7 +183,7 @@ class BlockSigning(DaemonThread):
                 return rpc_func(*args)
             except Exception as e:
                 self.logger.warning("{}\nReconnecting to client...".format(e))
-                self.ocean = getoceand(self.ocean_conf)
+                self.ocean = getoceand(self.conf)
         self.logger.error("Failed reconnecting to client")
         self.stop()
 

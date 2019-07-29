@@ -117,9 +117,11 @@ def main():
         ocean_conf.append((mainconf, e))
         e.importprivkey(keys[i])
         ocean_conf[i][0]["reissuanceprivkey"] = keys[i]
+        ocean_conf[i][0]["id"] = i
+        ocean_conf[i][0]["msgtype"] = MESSENGER_TYPE
+        ocean_conf[i][0]["blocktime"] = block_time
+        ocean_conf[i][0]["nsigs"] = num_of_sigs
         time.sleep(1)
-
-
 
     # EXPLORER FULL NODE
     explorer_datadir=tmpdir+"/explorer"
@@ -141,7 +143,7 @@ def main():
 
     node_signers = []
     for i in range(len(node_ids)):
-        node = BlockSigning(ocean_conf[i][0], MESSENGER_TYPE, node_ids, i, block_time, in_rate, in_period, in_address, script)
+        node = BlockSigning(ocean_conf[i][0], node_ids, in_rate, in_period, in_address, script)
         node_signers.append(node)
         node.start()
 

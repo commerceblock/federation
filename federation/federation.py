@@ -15,8 +15,8 @@ from .hsm import HsmPkcs11
 from .connectivity import getoceand, loadConfig
 
 NUM_OF_NODES_DEFAULT = 5
+NUM_OF_SIGS_DEFAULT = 3
 MESSENGER_TYPE_DEFAULT = "kafka"
-BLOCK_TIME = 60
 IN_RATE = 0
 IN_PERIOD = 0
 IN_ADDRESS = ""
@@ -56,9 +56,9 @@ def main():
     conf["rpcpassword"] = args.rpcpassword
     conf["rpcport"] = args.rpcport
     conf["rpcconnect"] = args.rpconnect
-
-    node_id = args.id
-    msg_type = args.msgtype
+    conf["id"] = args.id
+    conf["msgtype"] = args.msgtype
+    conf["nsigs"] = NUM_OF_SIGS_DEFAULT
 
     inrate = args.inflationrate
     inprd = args.inflationperiod
@@ -78,13 +78,13 @@ def main():
     if args.hsm:
         signer = HsmPkcs11(os.environ['KEY_LABEL'])
 
-    signing_node = BlockSigning(conf, msg_type, nodes, node_id, BLOCK_TIME, inrate, inprd, inaddr, inscript, signer)
+    signing_node = BlockSigning(conf, nodes, inrate, inprd, inaddr, inscript, signer)
     signing_node.start()
 
     try:
         while 1:
             if signing_node.stopped():
-                raise Exception("Signing Node thread has stopped")
+                raise Exception("Node thread has stopped")
             time.sleep(0.01)
     except KeyboardInterrupt:
         signing_node.stop()
