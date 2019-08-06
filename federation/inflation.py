@@ -13,11 +13,8 @@ class Inflation():
         self.script = script
         self.inconf = 1
 
-        try:
-            ocean.importprivkey(key,"privkey",True)
-        except Exception as e:
-            self.logger.error("{}\nFailed to import reissuance private key".format(e))
-            sys.exit(1)
+
+        #Check if the node already has the inflationkey before trying to import it
         self.riprivk = []
         self.riprivk.append(key)
         try:
@@ -27,8 +24,31 @@ class Inflation():
             sys.exit(1)
         self.p2sh = p2sh["p2sh"]
         self.nsigs = p2sh["reqSigs"]
-        ocean.importaddress(self.p2sh,"reissuance")
+
         validate = ocean.validateaddress(self.p2sh)
+        have_va_addr = bool(validate["ismine"])
+        watch_only = bool(validate["iswatchonly"])
+        have_va_prvkey = have_va_addr and not watch_only
+
+        rescan_needed = True
+
+        if have_va_prvkey == False:
+            try:
+                ocean.importprivkey(key,"privkey",rescan_needed)
+            except Exception as e:
+                self.logger.error("{}\nFailed to import reissuance private key".format(e))
+                sys.exit(1)
+
+            #Have just imported the private key so another rescan should be unnecesasary
+            rescan_needed=False
+
+        #Check if we still need to import the address given that we have just imported the private key
+        validate = ocean.validateaddress(self.p2sh)
+        have_va_addr = bool(validate["ismine"])
+        if have_va_addr == False:
+            ocean.importaddress(self.p2sh,"reissuance",rescan_needed)
+            validate = ocean.validateaddress(self.p2sh)
+            
         self.scriptpk = validate["scriptPubKey"]
 
     def send_txs(self, ocean, height, block, sigs):
