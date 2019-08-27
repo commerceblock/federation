@@ -13,7 +13,6 @@ class Inflation():
         self.script = script
         self.inconf = 1
 
-
         #Check if the node already has the inflationkey before trying to import it
         self.riprivk = []
         self.riprivk.append(key)
@@ -48,7 +47,7 @@ class Inflation():
         if have_va_addr == False:
             ocean.importaddress(self.p2sh,"reissuance",rescan_needed)
             validate = ocean.validateaddress(self.p2sh)
-            
+
         self.scriptpk = validate["scriptPubKey"]
 
     def send_txs(self, ocean, height, block, sigs):
@@ -103,7 +102,9 @@ class Inflation():
         txsigs = None
         if height % self.period == 0:
             rtxs = self.get_reissuance_txs(ocean, height)
-            self.inconf = 1 if len(rtxs) == 0 else 0
+            if rtxs == None:
+                self.logger.warning("could not get reissuance txs")
+            self.inconf = 1 if rtxs != None and len(rtxs) == 0 else 0
         if self.inconf == 0 and "txs" in new_block:
             if height % self.period == 0:
                 if rtxs == new_block["txs"]:
@@ -154,6 +155,8 @@ class Inflation():
                                     total_reissue += amount_unfrozen*(1.0+float(self.rate))**(elapsed_interval/(24*365))-amount_unfrozen
                                     self.logger.info("backdate reissue: "+ str(total_reissue))
                         self.logger.info("Reissue asset "+asset+" by "+str(round(total_reissue,8)))
+                        if total_reissue == 0.0:
+                            continue
                         tx = ocean.createrawreissuance(self.address,str("%.8f" % round(total_reissue,8)),token_addr,str(unspent["amount"]),unspent["txid"],str(unspent["vout"]),entropy)
                         tx["token"] = unspent["asset"]
                         tx["txid"] = unspent["txid"]
