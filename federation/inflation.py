@@ -142,7 +142,7 @@ class Inflation():
                                 entropy = entry["entropy"]
                                 break
                         #the spendable amount needs to be inflated over a period of 1 hour
-                        total_reissue = amount_spendable*(1.0+float(self.rate))**(1.0/(24*365))-amount_spendable
+                        total_reissue = amount_spendable*(1.0+float(self.rate))**(8.0/(24*365))-amount_spendable
                         #check to see if there are any assets unfrozenx in the last interval
                         amount_unfrozen = 0.0
                         for frzout in frzhist:
@@ -152,7 +152,7 @@ class Inflation():
                                     elapsed_interval = backdate // self.period
                                     self.logger.info("elapsed_interval: "+str(elapsed_interval))
                                     amount_unfrozen = float(frzout["value"])
-                                    total_reissue += amount_unfrozen*(1.0+float(self.rate))**(elapsed_interval/(24*365))-amount_unfrozen
+                                    total_reissue += amount_unfrozen*(1.0+float(self.rate))**(elapsed_interval*8/(24*365))-amount_unfrozen
                                     self.logger.info("backdate reissue: "+ str(total_reissue))
                         self.logger.info("Reissue asset "+asset+" by "+str(round(total_reissue,8)))
                         if total_reissue == 0.0:
