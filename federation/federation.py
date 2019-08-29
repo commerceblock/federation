@@ -35,7 +35,7 @@ def parse_args():
     parser.add_argument('--nodes', default="", type=str, help="Nodes for zmq protocol. Example use 'node0:1503,node1:1502'")
 
     parser.add_argument('--inflationrate', default=IN_RATE, type=float, help="Inflation rate. Example 0.0101010101")
-    parser.add_argument('--inflationperiod', default=IN_PERIOD, type=int, help="Inflation period (in minutes)")
+    parser.add_argument('--inflationperiod', default=IN_PERIOD, type=int, help="Inflation period (in blocks)")
     parser.add_argument('--inflationaddress', default=IN_ADDRESS, type=str, help="Address for inflation payments")
     parser.add_argument('--reissuancescript', default=SCRIPT, type=str, help="Reissuance token script")
     parser.add_argument('--reissuanceprivkey', default=PRVKEY, type=str, help="Reissuance private key")

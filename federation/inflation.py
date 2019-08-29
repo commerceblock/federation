@@ -2,11 +2,14 @@
 import logging
 import sys
 
+YEAR = 60*60*24*365
+
 class Inflation():
-    def __init__(self, total, my_id, ocean, in_rate, in_period, in_address, script, key):
+    def __init__(self, total, my_id, ocean, interval, in_rate, in_period, in_address, script, key):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.total = total
         self.my_id = my_id
+        self.interval = interval
         self.rate = in_rate
         self.period = in_period
         self.address = in_address
@@ -142,7 +145,7 @@ class Inflation():
                                 entropy = entry["entropy"]
                                 break
                         #the spendable amount needs to be inflated over a period of 1 hour
-                        total_reissue = amount_spendable*(1.0+float(self.rate))**(1.0/(24*365))-amount_spendable
+                        total_reissue = amount_spendable*(1.0+float(self.rate))**(self.interval*self.period/YEAR)-amount_spendable
                         #check to see if there are any assets unfrozenx in the last interval
                         amount_unfrozen = 0.0
                         for frzout in frzhist:
@@ -152,7 +155,7 @@ class Inflation():
                                     elapsed_interval = backdate // self.period
                                     self.logger.info("elapsed_interval: "+str(elapsed_interval))
                                     amount_unfrozen = float(frzout["value"])
-                                    total_reissue += amount_unfrozen*(1.0+float(self.rate))**(elapsed_interval/(24*365))-amount_unfrozen
+                                    total_reissue += amount_unfrozen*(1.0+float(self.rate))**(elapsed_interval*self.interval*self.period/YEAR)-amount_unfrozen
                                     self.logger.info("backdate reissue: "+ str(total_reissue))
                         self.logger.info("Reissue asset "+asset+" by "+str(round(total_reissue,8)))
                         if total_reissue == 0.0:
