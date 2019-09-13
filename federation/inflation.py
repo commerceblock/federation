@@ -5,7 +5,7 @@ import sys
 YEAR = 60*60*24*365
 
 class Inflation():
-    def __init__(self, total, my_id, ocean, interval, in_rate, in_period, in_address, script, key, signer):
+    def __init__(self, total, my_id, ocean, interval, in_rate, in_period, in_address, script, key):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.total = total
         self.my_id = my_id
@@ -15,12 +15,10 @@ class Inflation():
         self.address = in_address
         self.script = script
         self.inconf = 1
-        self.signer = signer
 
-        if key:
-            #Check if the node already has the inflationkey before trying to import it
-            self.riprivk = []
-            self.riprivk.append(key)
+        #Check if the node already has the inflationkey before trying to import it
+        self.riprivk = []
+        self.riprivk.append(key)
         try:
             p2sh = ocean.decodescript(script)
         except Exception as e:
@@ -36,7 +34,7 @@ class Inflation():
 
         rescan_needed = True
 
-        if have_va_prvkey == False and key:
+        if have_va_prvkey == False:
             try:
                 ocean.importprivkey(key,"privkey",rescan_needed)
             except Exception as e:
@@ -227,25 +225,18 @@ class Inflation():
             signatures = []
             if not check or self.check_reissuance(transactions, height):
                 for tx in transactions:
-                    if key:
-                        inpts = []
-                        inpt = {}
-                        inpt["txid"] = tx["txid"]
-                        inpt["vout"] = tx["vout"]
-                        inpt["scriptPubKey"] = self.scriptpk
-                        inpt["redeemScript"] = self.script
-                        inpts.append(inpt)
-                        signedtx = ocean.signrawtransaction(tx["hex"],inpts,self.riprivk)
-                        sig = ""
-                        scriptsig = signedtx["errors"][0]["scriptSig"]
-                        ln = int(scriptsig[2:4],16)
-                        if ln > 0: sig = scriptsig[2:4] + scriptsig[4:4+2*ln]
-                    #hsm tx signing
-                    elif self.signer is not None:
-                        tx_bytes = bytes.fromhex(tx["hex"])
-                        block_header_for_hash_bytes = block_header_bytes[:len(block_header_bytes)-1]
-                        bsig = self.signer.sign(double_sha256(tx_bytes))
-                        sig = "{:02x}{}".format(len(bsig), bsig.hex())
+                    inpts = []
+                    inpt = {}
+                    inpt["txid"] = tx["txid"]
+                    inpt["vout"] = tx["vout"]
+                    inpt["scriptPubKey"] = self.scriptpk
+                    inpt["redeemScript"] = self.script
+                    inpts.append(inpt)
+                    signedtx = ocean.signrawtransaction(tx["hex"],inpts,self.riprivk)
+                    sig = ""
+                    scriptsig = signedtx["errors"][0]["scriptSig"]
+                    ln = int(scriptsig[2:4],16)
+                    if ln > 0: sig = scriptsig[2:4] + scriptsig[4:4+2*ln]
                     signatures.append(sig)
             else:
                 self.logger.warning("reissuance tx error, node: {}".format(self.my_id))
