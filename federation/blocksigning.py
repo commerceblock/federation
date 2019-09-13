@@ -27,7 +27,7 @@ class BlockSigning(DaemonThread):
 
         self.inflation = None
         if in_rate > 0:
-            self.inflation = Inflation(self.total, self.my_id, self.ocean, self.interval, in_rate, in_period, in_address, script, conf["reissuanceprivkey"], signer)
+            self.inflation = Inflation(self.total, self.my_id, self.ocean, self.interval, in_rate, in_period, in_address, script, conf["reissuanceprivkey"])
 
     def run(self):
         while not self.stopped():
