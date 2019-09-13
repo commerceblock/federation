@@ -7,4 +7,4 @@ elif [ -f /run/secrets/ocean_pass ]; then
     creds=("--rpcpass=$(cat /run/secrets/ocean_pass)")
 fi
 
-exec "$@" "${creds[@]}"
+bash -c "$@ ${creds[@]}"
