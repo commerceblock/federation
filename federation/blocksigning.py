@@ -57,7 +57,8 @@ class BlockSigning(DaemonThread):
                 sig = {}
                 sig["blocksig"] = self.get_blocksig(new_block["blockhex"])
                 if sig["blocksig"] == None:
-                    self.logger.warning("could not sign new block")
+                    self.logger.error("could not sign new block")
+                    self.stop()
                     continue
 
                 # Inflation only, check to see if there are any reissuance transactions to sign
@@ -78,7 +79,7 @@ class BlockSigning(DaemonThread):
                 block = {}
                 block["blockhex"] = self.get_newblockhex()
                 if block["blockhex"] == None:
-                    self.logger.warning("could not generate new block hex")
+                    self.logger.error("could not generate new block hex")
                     continue
 
                 #if reissuance step, create raw reissuance transactions
@@ -90,6 +91,7 @@ class BlockSigning(DaemonThread):
                     except Exception as e:
                         self.logger.error(e)
                         self.stop()
+                        continue
 
                 self.messenger.produce_block(block, height + 1)
                 elapsed_time = time() - start_time
