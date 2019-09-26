@@ -19,14 +19,21 @@ DEFAULT_ENABLE_LOGGING = False
 DEFAULT_GENERATE_KEYS = False
 DEFAULT_RETAIN_DAEMONS = False
 DEFAULT_INFLATION_TXS = False
+DEFAULT_CATCHUP_MODE = True
 MESSENGER_TYPE = 'zmq'
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-l', '--enable-logging', default=DEFAULT_ENABLE_LOGGING, type=bool, help="Enable logging (default: %(default)s)")
-    parser.add_argument('-g', '--generate-keys', default=DEFAULT_GENERATE_KEYS, type=bool, help="Generate keys for block generation and free coin issuance (default: %(default)s)")
-    parser.add_argument('-r', '--retain-daemons', default=DEFAULT_RETAIN_DAEMONS, type=bool, help="Retain daemons and datadirs when demo stops (default: %(default)s)")
-    parser.add_argument('-i', '--inflation-txs', default=DEFAULT_INFLATION_TXS, type=bool, help="Generate and sign inflation transactions (default: %(default)s)")
+    parser.add_argument('-l', '--enable-logging', default=DEFAULT_ENABLE_LOGGING, type=bool,\
+        help="Enable logging (default: %(default)s)")
+    parser.add_argument('-g', '--generate-keys', default=DEFAULT_GENERATE_KEYS, type=bool,\
+        help="Generate keys for block generation and free coin issuance (default: %(default)s)")
+    parser.add_argument('-r', '--retain-daemons', default=DEFAULT_RETAIN_DAEMONS, type=bool,\
+        help="Retain daemons and datadirs when demo stops (default: %(default)s)")
+    parser.add_argument('-i', '--inflation-txs', default=DEFAULT_INFLATION_TXS, type=bool,\
+        help="Generate and sign inflation transactions (default: %(default)s)")
+    parser.add_argument('-c', '--catchup-mode', default=DEFAULT_CATCHUP_MODE, type=bool,\
+        help="Enable catch up mode testing with inconsistent blocktimes (default: %(default)s)")
     return parser.parse_args()
 
 def main():
@@ -151,7 +158,24 @@ def main():
     client.start()
 
     try:
+        catch_up_time = time.time()
+        catch_up_switch = True
         while 1:
+            if args.catchup_mode:
+                time.sleep(1) # let first block creation round
+                if time.time() - catch_up_time > 3 * block_time:
+                    node_signers[0].stop()
+                    node_signers[0].join()  # this will unbind zmq
+                    time.sleep(block_time)
+                    # use diff port as socket might not have cleared yet
+                    node_ids[0] = '127.0.0.1:1600' if catch_up_switch else '127.0.0.1:1500'
+                    catch_up_switch = not catch_up_switch
+                    node = BlockSigning(ocean_conf[0][0], node_ids, in_rate, in_period, in_address, script)
+                    node_signers[0] = node
+                    node.start()
+                    time.sleep(1)
+                    catch_up_time = time.time()
+
             for i, node in enumerate(node_signers):
                 if node.stopped():
                     raise Exception("Node {} thread has stopped".format(i))

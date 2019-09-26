@@ -11,12 +11,23 @@ from .inflation import Inflation
 
 BLOCK_TIME_DEFAULT = 60
 
+def round_time(period, time):
+    time_mod = time % period
+    if time_mod == 0:
+        return time
+    if time_mod >= period / 2:
+        return time - time_mod + period
+    return time - time_mod
+
 class BlockSigning(DaemonThread):
     def __init__(self, conf, nodes, in_rate, in_period, in_address, script, signer=None):
         super().__init__()
         self.conf = conf
         self.ocean = getoceand(self.conf)
-        self.interval = BLOCK_TIME_DEFAULT if "blocktime" not in conf else conf["blocktime"]
+        self.default_interval = BLOCK_TIME_DEFAULT if "blocktime" not in conf else conf["blocktime"]
+        self.catchup_interval = self.default_interval // 2
+        self.interval = self.default_interval
+        self.init_block_time = 0
         self.total = len(nodes)
         self.my_id = conf["id"] % self.total
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -27,7 +38,29 @@ class BlockSigning(DaemonThread):
 
         self.inflation = None
         if in_rate > 0:
-            self.inflation = Inflation(self.total, self.my_id, self.ocean, self.interval, in_rate, in_period, in_address, script, conf["reissuanceprivkey"])
+            self.inflation = Inflation(self.total, self.my_id, self.ocean, self.default_interval,\
+                in_rate, in_period, in_address, script, conf["reissuanceprivkey"])
+
+    def set_init_block_time(self):
+        if self.init_block_time == 0:
+            block_hash = self.get_blockhash(1)
+            if block_hash == None:
+                return False
+            block_header = self.get_blockheader(block_hash)
+            if block_header == None or 'time' not in block_header:
+                return False
+            self.init_block_time = round_time(self.default_interval, block_header['time'])
+        return True
+
+    def is_catchup_needed(self, height):
+        if height == 0:
+            return False
+        height_expected = (round_time(self.default_interval, int(time())) - self.init_block_time)\
+                         // self.default_interval
+        if height_expected > height:
+            self.logger.warning("block height {} expected {}".format(height, height_expected))
+            return True
+        return False
 
     def run(self):
         while not self.stopped():
@@ -38,6 +71,18 @@ class BlockSigning(DaemonThread):
             height = self.get_blockcount()
             if height == None:
                 continue
+            elif height > 0 and not self.set_init_block_time():
+                self.logger.error("could not set init block time")
+                continue
+
+            if self.is_catchup_needed(height):
+                if self.inflation is not None and self.inflation.is_inflation_step(height):
+                    self.logger.info("catch mode skipped due to inflation step")
+                else:
+                    self.interval = self.catchup_interval
+                    self.logger.info("catch mode enabled")
+            else:
+                self.interval = self.default_interval
 
             if self.my_id != int(step):
                 # NOT OUR TURN - GET BLOCK AND SEND SIGNATURE ONLY
@@ -128,6 +173,12 @@ class BlockSigning(DaemonThread):
 
     def get_newblockhex(self):
         return self.rpc_retry(self.ocean.getnewblockhex)
+
+    def get_blockhash(self, height):
+        return self.rpc_retry(self.ocean.getblockhash, height)
+
+    def get_blockheader(self, hash):
+        return self.rpc_retry(self.ocean.getblockheader, hash)
 
     def get_blocksig(self, block):
         try:

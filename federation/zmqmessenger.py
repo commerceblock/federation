@@ -25,6 +25,10 @@ class ZmqProducer:
         self.socket.bind("tcp://%s:%d" % ('*', port))
         zmq_poller.register(self.socket, zmq.POLLOUT)
 
+    def __del__(self):
+        zmq_poller.unregister(self.socket)
+        self.socket.close()
+
     def send_message(self, msg, topic):
         self.socket.send(mogrify(topic, msg).encode("ascii", "strict"))
 
@@ -42,14 +46,14 @@ class ZmqConsumer:
         self.socket.setsockopt(zmq.SUBSCRIBE, "{}".format(TOPIC_NEW_SIG).encode("ascii", "strict"))
         zmq_poller.register(self.socket, zmq.POLLIN)
 
+    def __del__(self):
+        zmq_poller.unregister(self.socket)
+        self.socket.close()
+
     def read_message(self):
         if self.socket not in dict(zmq_poller.poll()):
             return None, None
         return demogrify(self.socket.recv().decode())
-
-    def close(self):
-        zmq_poller.unregister(self.socket)
-        self.socket.close()
 
 class ZmqMessenger(Messenger):
     def __init__(self, nodes, my_id):
@@ -104,9 +108,6 @@ class ZmqMessenger(Messenger):
 
     def reconnect(self):
         self.logger.info("Reconnecting consumers...")
-        for consumer in self.consumers:
-            consumer.close()
-
         self.consumers = []
         for i, node in enumerate(self.nodes):
             host, port = node.split(':', 1)
