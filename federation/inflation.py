@@ -68,6 +68,13 @@ class Inflation():
             return False
         return True
 
+    def is_inflation_step(self, height):
+        if height % self.period == 0:
+            return True
+        elif self.inconf == 0:
+            return True
+        return False
+
     def create_txs(self, ocean, height):
         self.logger.info("node: {} - inflationconf: {}".format(str(self.my_id), str(self.inconf)))
         txs = None

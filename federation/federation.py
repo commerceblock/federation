@@ -84,10 +84,12 @@ def main():
     try:
         while 1:
             if signing_node.stopped():
+                signing_node.join()
                 raise Exception("Node thread has stopped")
             time.sleep(0.01)
     except KeyboardInterrupt:
         signing_node.stop()
+        signing_node.join()
 
 if __name__ == "__main__":
     main()
