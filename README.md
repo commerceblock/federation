@@ -11,7 +11,7 @@ The client used by the federation nodes of the Ocean network performing block ge
 
 Federation arguments:
 
-- `--rpconnect`: rpc host of Ocean node
+- `--rpcconnect`: rpc host of Ocean node
 - `--rpcport`: rpc port of Ocean node
 - `--rpcuser`: rpc username
 - `--rpcpassword`: rpc password
@@ -27,8 +27,8 @@ Federation arguments:
 
 Example use:
 
-- zmq: `python3 -m federation --rpconnect 127.0.0.1 --rpcport 18443 --rpcuser user --rpcpass pass --id 1 --msgtype zmq --nodes “node0:1503,node1:1502”`
-- kafka: `python3 -m federation --rpconnect 127.0.0.1 --rpcport 18443 --rpcuser user --rpcpass pass --id 1` (check federation.py - defaults to 5 nodes)
+- zmq: `python3 -m federation --rpcconnect 127.0.0.1 --rpcport 18443 --rpcuser user --rpcpass pass --id 1 --msgtype zmq --nodes “node0:1503,node1:1502”`
+- kafka: `python3 -m federation --rpcconnect 127.0.0.1 --rpcport 18443 --rpcuser user --rpcpass pass --id 1` (check federation.py - defaults to 5 nodes)
 
 ### Using HSMs
 
@@ -48,7 +48,7 @@ To build the federation container with hsm signing run:
 
 Inside this container federation can be initiated by:
 
-`python3 -u -m federation --rpconnect signing1 --rpcport 18886 --rpcuser username1 --rpcpass password1 --id 1 --msgtype zmq --nodes "federation0:6666,federation1:7777,federation2:8888" --hsm 1`
+`python3 -u -m federation --rpcconnect signing1 --rpcport 18886 --rpcuser username1 --rpcpass password1 --id 1 --msgtype zmq --nodes "federation0:6666,federation1:7777,federation2:8888" --hsm 1`
 
 ### Inflating assets
 
