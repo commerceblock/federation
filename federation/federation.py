@@ -25,7 +25,7 @@ PRVKEY = ""
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--rpconnect', required=True, type=str, help="Client RPC host")
+    parser.add_argument('--rpcconnect', required=True, type=str, help="Client RPC host")
     parser.add_argument('--rpcport', required=True, type=str, help="Client RPC port")
     parser.add_argument('--rpcuser', required=True, type=str, help="RPC username for client")
     parser.add_argument('--rpcpassword', required=True, type=str, help="RPC password for client")
@@ -55,7 +55,7 @@ def main():
     conf["rpcuser"] = args.rpcuser
     conf["rpcpassword"] = args.rpcpassword
     conf["rpcport"] = args.rpcport
-    conf["rpcconnect"] = args.rpconnect
+    conf["rpcconnect"] = args.rpcconnect
     conf["id"] = args.id
     conf["msgtype"] = args.msgtype
     conf["nsigs"] = NUM_OF_SIGS_DEFAULT
